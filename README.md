@@ -37,6 +37,21 @@ The Clip Studio includes an opt-in source-video upload to GetPronto:
 - GetPronto's returned secureUrl is publicly accessible to anyone who has the link. The UI warns users and requires an explicit upload-button action. Do not upload private or sensitive footage.
 - Cloud storage is not a rendering worker. Background FFmpeg rendering is a separate roadmap item and is not enabled by this integration.
 
+### 3. Optional Phase 2 services (all keys are server-side)
+
+ClipForge keeps local editing available without any provider keys.
+
+- **GetPronto storage:** add `GETPRONTO_API_KEY` (secret key beginning `pronto_sk_`). Browser uploads use presigned URLs; media bytes bypass Vercel. GetPronto Free currently allows up to 100 MB per file, 5 GB storage and 10 GB monthly bandwidth. Secure file URLs are accessible to anyone who has the link, so upload only footage you are comfortable sharing by link.
+- **Rendobar cloud rendering:** add `RENDOBAR_API_KEY` (key beginning `rb_`). The API uses asynchronous Compose jobs, free validation, job polling and a background worker. New accounts currently receive $5 one-time credits, one concurrent job, 500 MB max input and 7-day output retention; no card is required to start. Compose output is billed at $0.04/minute, so this is a limited trial allowance, not unlimited daily free rendering. No automatic top-up or paid plan is configured. When credits are exhausted, cloud jobs are rejected and the local FFmpeg option remains available.
+- **RadoxAI AI Director:** add `RADOXAI_API_KEY` and `RADOXAI_MODEL`. It receives clip metadata only and proposes hook-first ordering, titles, effects and transitions. RadoxAI's published Free tier currently lists 0.5M tokens/month with no card. Requests that run out of allowance/balance are rejected; ClipForge does not initiate top-ups.
+- All three secrets belong in Vercel Environment Variables for Preview and Production. Never put them in frontend code or GitHub.
+
+### 4. Phase 2 Remix Studio
+
+The local editor supports reorderable clip timelines, 9:16/16:9/1:1 exports, cinematic/warm/vivid/mono/noir grades, fade-in/out, animated title overlays, speed changes and optional background music mixing. It stores the edit session and assets in IndexedDB for up to 24 hours. Android local exports are limited to 250 MB source size to reduce memory crashes.
+
+Cloud Compose supports crossfade, fade, slide, push, zoom, wipe and hard cuts; per-clip trims and speed; cinematic looks and colour grading; kinetic word-by-word titles; and a background music track. Jobs continue on Rendobar's servers after the phone is closed. Reopen ClipForge and use **Check cloud job** to resume tracking. Rendobar keeps Free outputs for 7 days.
+
 ### 3. Vercel deployment
 This project now uses Vite for browser bundling and FFmpeg.wasm:
 - Build command: npm run build
@@ -63,6 +78,9 @@ The current trim output is a preview only. Saving/download, multiple-clip remix,
 ## API routes
 - POST /api/gemini/upload-session — validates Firebase user, starts Gemini resumable upload.
 - POST /api/gemini/analyze — waits for Gemini File API processing, analyses the video and returns clip moments.
+- POST /api/storage/getpronto — authenticated GetPronto presign/confirm actions.
+- POST /api/render/rendobar — authenticated Compose validation, background job submission and status polling.
+- POST /api/ai/director — authenticated RadoxAI creative direction; metadata only.
 - POST /api/storage/getpronto — authenticated GetPronto presign/confirm actions; requires GETPRONTO_API_KEY.
 - api/_lib/auth.js — Firebase ID token verification using Google's public signing keys.
 - api/_lib/http.js — API response and secret helpers.
