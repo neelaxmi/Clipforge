@@ -131,7 +131,7 @@ export function bindUpload() {
   const remixTimeline = document.getElementById("remix-timeline");
   const exportRemixButton = document.getElementById("export-remix");
   const cloudRenderButton = document.getElementById("cloud-render-remix");
-  const cloudStatus = document.getElementById("cloud-render-status");
+  const cloudRenderStatus = document.getElementById("cloud-render-status");
   const cloudDownload = document.getElementById("cloud-render-download");
   const directorButton = document.getElementById("radox-director");
   const directorStatus = document.getElementById("radox-director-status");
@@ -449,13 +449,13 @@ export function bindUpload() {
     } finally { directorButton.disabled = remixClips.length===0; }
   };
   async function monitorCloudJob(jobId) {
-    cloudStatus.textContent = "Checking cloud job " + jobId + "…";
+    cloudRenderStatus.textContent = "Checking cloud job " + jobId + "…";
     try {
       const job = await waitForRendobarJob(jobId, state => {
-        cloudStatus.textContent = "Cloud render " + state.status + (state.progress != null ? " · " + Math.round(Number(state.progress)*100) + "%" : "") + ". It continues on the provider server if you close this page.";
+        cloudRenderStatus.textContent = "Cloud render " + state.status + (state.progress != null ? " · " + Math.round(Number(state.progress)*100) + "%" : "") + ". It continues on the provider server if you close this page.";
       });
       await saveLocalItem("rendobar-job",{kind:"rendobar-job",jobId,status:job.status,outputUrl:job.outputUrl || null});
-      cloudStatus.textContent = "Cloud render complete. Rendobar Free output retention is 7 days.";
+      cloudRenderStatus.textContent = "Cloud render complete. Rendobar Free output retention is 7 days.";
       cloudDownload.replaceChildren();
       if (job.outputUrl) {
         const link=document.createElement("a");
@@ -465,7 +465,7 @@ export function bindUpload() {
       }
       addConsoleLine("SUCCESS",["Rendobar cloud render completed.",job]);
     } catch(error) {
-      cloudStatus.textContent = error.message || "Cloud render status check failed.";
+      cloudRenderStatus.textContent = error.message || "Cloud render status check failed.";
       addConsoleLine("WARN",["Cloud job status:",error.message]);
     }
   }
@@ -473,12 +473,12 @@ export function bindUpload() {
     if (!currentFile || !remixClips.length) return;
     cloudRenderButton.disabled = true;
     try {
-      cloudStatus.textContent = "Checking Rendobar API configuration…";
+      cloudRenderStatus.textContent = "Checking Rendobar API configuration…";
       await checkRendobar();
       let storedSource = await getLocalItem("getpronto-source-video");
       if (!storedSource?.url || storedSource.name !== currentFile.name || storedSource.size !== currentFile.size) {
-        cloudStatus.textContent = "Uploading source to GetPronto for background rendering…";
-        const file = await uploadVideoToGetPronto(currentFile,status=>{cloudStatus.textContent=status;});
+        cloudRenderStatus.textContent = "Uploading source to GetPronto for background rendering…";
+        const file = await uploadVideoToGetPronto(currentFile,status=>{cloudRenderStatus.textContent=status;});
         storedSource = {url:file.url,name:currentFile.name,size:currentFile.size,id:file.id};
         await saveLocalItem("getpronto-source-video",{kind:"getpronto-source-video",...storedSource});
       }
@@ -486,8 +486,8 @@ export function bindUpload() {
       if (remixMusicFile) {
         let storedMusic = await getLocalItem("getpronto-remix-music");
         if (!storedMusic?.url || storedMusic.name !== remixMusicFile.name || storedMusic.size !== remixMusicFile.size) {
-          cloudStatus.textContent = "Uploading background music to GetPronto…";
-          const music = await uploadMediaToGetPronto(remixMusicFile,status=>{cloudStatus.textContent=status;});
+          cloudRenderStatus.textContent = "Uploading background music to GetPronto…";
+          const music = await uploadMediaToGetPronto(remixMusicFile,status=>{cloudRenderStatus.textContent=status;});
           storedMusic = {url:music.url,name:remixMusicFile.name,size:remixMusicFile.size,id:music.id};
           await saveLocalItem("getpronto-remix-music",{kind:"getpronto-remix-music",...storedMusic});
         }
@@ -502,16 +502,16 @@ export function bindUpload() {
         musicUrl, musicVolume:Number(document.getElementById("remix-music-volume").value),
         speed:Number(document.getElementById("remix-speed").value)
       };
-      cloudStatus.textContent = "Validating edit (validation is free)…";
+      cloudRenderStatus.textContent = "Validating edit (validation is free)…";
       const validation = await validateRendobar(timeline);
       addConsoleLine("INFO",["Rendobar validation result:",validation.validation]);
-      cloudStatus.textContent = "Submitting cloud render using your free credits…";
+      cloudRenderStatus.textContent = "Submitting cloud render using your free credits…";
       const submitted = await submitRendobar(timeline);
       await saveLocalItem("rendobar-job",{kind:"rendobar-job",jobId:submitted.jobId,status:"queued"});
       addConsoleLine("SUCCESS",["Cloud render queued.",submitted]);
       await monitorCloudJob(submitted.jobId);
     } catch(error) {
-      cloudStatus.textContent = error.message || "Cloud render could not start. Local rendering remains available.";
+      cloudRenderStatus.textContent = error.message || "Cloud render could not start. Local rendering remains available.";
       addConsoleLine("ERROR",["Cloud render setup failed:",error.message]);
       Logger.error("Rendobar cloud render failed",error);
       window.Clipforge.toast(error.message || "Cloud render failed.", "error");
@@ -521,7 +521,7 @@ export function bindUpload() {
   };
   document.getElementById("check-cloud-render").onclick = async () => {
     const saved = await getLocalItem("rendobar-job");
-    if (!saved?.jobId) { cloudStatus.textContent = "No saved cloud job found yet."; return; }
+    if (!saved?.jobId) { cloudRenderStatus.textContent = "No saved cloud job found yet."; return; }
     await monitorCloudJob(saved.jobId);
   };
   document.getElementById("remix-music").onchange = async event => {
@@ -617,7 +617,7 @@ export function bindUpload() {
         addConsoleLine("SUCCESS", ["Restored source video from local browser storage."]);
       }
       const savedJob = await getLocalItem("rendobar-job");
-      if (savedJob?.jobId) cloudStatus.textContent = "Saved cloud job: " + savedJob.jobId + " · Tap Check cloud job to resume tracking.";
+      if (savedJob?.jobId) cloudRenderStatus.textContent = "Saved cloud job: " + savedJob.jobId + " · Tap Check cloud job to resume tracking.";
       if (savedJob?.outputUrl) {
         const link=document.createElement("a"); link.className="btn primary"; link.href=savedJob.outputUrl;
         link.target="_blank"; link.rel="noopener noreferrer"; link.textContent="↓ Open saved cloud MP4";
