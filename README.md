@@ -28,6 +28,15 @@ A Gemini Pro/Google AI subscription does not automatically include Gemini API us
 
 Add variables to Vercel for Preview and Production, then redeploy. Never place GEMINI_API_KEY in frontend JavaScript, HTML, or GitHub.
 
+### 3. GetPronto cloud asset storage (optional)
+
+The Clip Studio includes an opt-in source-video upload to GetPronto:
+- Add GETPRONTO_API_KEY as a server-only Vercel Environment Variable. Use a GetPronto secret key (pronto_sk_...), never a public key in the browser.
+- The browser requests a short-lived presigned upload URL from POST /api/storage/getpronto, uploads directly to storage, then confirms the upload. Video bytes do not pass through a Vercel Function.
+- GetPronto Free currently allows up to 100 MB per video, 5 GB total storage and 10 GB monthly bandwidth. No card is required to start.
+- GetPronto's returned secureUrl is publicly accessible to anyone who has the link. The UI warns users and requires an explicit upload-button action. Do not upload private or sensitive footage.
+- Cloud storage is not a rendering worker. Background FFmpeg rendering is a separate roadmap item and is not enabled by this integration.
+
 ### 3. Vercel deployment
 This project now uses Vite for browser bundling and FFmpeg.wasm:
 - Build command: npm run build
@@ -36,7 +45,7 @@ This project now uses Vite for browser bundling and FFmpeg.wasm:
 
 The api/ folder contains Vercel Node.js Functions. The endpoints require a valid Firebase ID token.
 
-### 4. Video analysis flow
+### 5. Video analysis flow
 1. User selects an MP4, MOV or WebM file, or submits a public YouTube video link for analysis only.
 2. The browser asks POST /api/gemini/upload-session for a temporary resumable upload URL.
 3. The browser sends the video directly to Gemini File API.
@@ -46,7 +55,7 @@ The api/ folder contains Vercel Node.js Functions. The endpoints require a valid
 
 Gemini File API currently supports up to 2 GB per video on the free tier and 20 GB on paid API usage; this app intentionally caps uploads at 1.5 GB. API quotas and billing depend on the Google AI Studio project and model.
 
-### 5. Trim preview
+### 6. Trim preview
 FFmpeg.wasm is lazy-loaded only when the user requests a trimmed preview (about 31 MB of core assets on first use). The preview is encoded in browser memory. For Android stability, the current trim preview limit is 250 MB source size. Close other tabs and use shorter/lower-resolution source videos if the phone runs out of memory.
 
 The current trim output is a preview only. Saving/download, multiple-clip remix, timeline editing, subtitles rendering and final export are Phase 2.
@@ -54,6 +63,7 @@ The current trim output is a preview only. Saving/download, multiple-clip remix,
 ## API routes
 - POST /api/gemini/upload-session — validates Firebase user, starts Gemini resumable upload.
 - POST /api/gemini/analyze — waits for Gemini File API processing, analyses the video and returns clip moments.
+- POST /api/storage/getpronto — authenticated GetPronto presign/confirm actions; requires GETPRONTO_API_KEY.
 - api/_lib/auth.js — Firebase ID token verification using Google's public signing keys.
 - api/_lib/http.js — API response and secret helpers.
 
