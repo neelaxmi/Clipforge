@@ -3,9 +3,10 @@ import { sendJson, methodNotAllowed, safeErrorMessage } from "../_lib/http.js";
 
 const API_BASE = "https://api.getpronto.io/v1";
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
-const VIDEO_TYPES = new Set([
+const MEDIA_TYPES = new Set([
   "video/mp4", "video/webm", "video/quicktime", "video/ogg",
-  "video/x-matroska", "video/x-msvideo", "video/3gpp", "video/mpeg"
+  "video/x-matroska", "video/x-msvideo", "video/3gpp", "video/mpeg",
+  "audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/mp4", "audio/aac", "audio/ogg", "audio/webm", "audio/x-m4a"
 ]);
 
 function getProntoKey() {
@@ -48,9 +49,9 @@ export default async function handler(req, res) {
       const filename = String(body.filename || "clipforge-video.mp4").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 120);
       const mimetype = String(body.mimetype || "").toLowerCase();
       const size = Number(body.size);
-      if (!VIDEO_TYPES.has(mimetype)) return sendJson(res, 400, { error: "Unsupported video format." });
+      if (!MEDIA_TYPES.has(mimetype)) return sendJson(res, 400, { error: "Unsupported video or audio format." });
       if (!Number.isSafeInteger(size) || size < 1 || size > MAX_VIDEO_BYTES) {
-        return sendJson(res, 413, { error: "GetPronto Free supports videos up to 100 MB per file." });
+        return sendJson(res, 413, { error: "GetPronto Free supports media files up to 100 MB per file." });
       }
       const result = await prontoRequest("/upload/presign", key, {
         filename,
