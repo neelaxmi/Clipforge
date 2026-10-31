@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     const style = String(body.style || "Most engaging moments").slice(0, 80);
     if (!/^files\/[a-zA-Z0-9-]{1,80}$/.test(fileName)) return sendJson(res, 400, { error: "Invalid Gemini video file reference." });
     if (!allowedTypes.has(mimeType)) return sendJson(res, 415, { error: "Unsupported video format." });
-    if (!Number.isFinite(durationSeconds) || durationSeconds < 1 || durationSeconds > 21600) return sendJson(res, 400, { error: "Video duration must be between 1 second and 6 hours." });
+    if (!Number.isFinite(durationSeconds) || durationSeconds < 1 || durationSeconds > 3600) return sendJson(res, 400, { error: "Video duration must be between 1 second and 60 minutes." });
 
     const fileUrl = `https://generativelanguage.googleapis.com/v1beta/${fileName}`;
     let file = null;
