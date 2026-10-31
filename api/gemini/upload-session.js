@@ -13,6 +13,9 @@ export default async function handler(req, res) {
     await requireFirebaseUser(req);
     const key = getGeminiKey();
     const { fileName, mimeType, size } = req.body || {};
+    const origin = req.headers.origin;
+    const requestHost = req.headers.host;
+    if (!origin || new URL(origin).host !== requestHost) return sendJson(res, 403, { error: "Video upload must start from this Clipforge website." });
     if (typeof fileName !== "string" || !fileName.trim() || fileName.length > 180) {
       return sendJson(res, 400, { error: "A valid video filename is required." });
     }
@@ -29,7 +32,8 @@ export default async function handler(req, res) {
         "X-Goog-Upload-Command": "start",
         "X-Goog-Upload-Header-Content-Length": String(size),
         "X-Goog-Upload-Header-Content-Type": mimeType,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Origin": origin
       },
       body: JSON.stringify({ file: { display_name: fileName.trim().slice(0, 120) } }),
       signal: AbortSignal.timeout(30000)
