@@ -19,12 +19,12 @@ async function apiRequest(body) {
   return data;
 }
 
-export async function uploadVideoToGetPronto(file, onProgress = () => {}) {
-  if (!(file instanceof File) || !file.type.startsWith("video/")) {
-    throw new Error("Choose a valid video file.");
+export async function uploadMediaToGetPronto(file, onProgress = () => {}) {
+  if (!(file instanceof File) || !(file.type.startsWith("video/") || file.type.startsWith("audio/"))) {
+    throw new Error("Choose a supported video or audio file.");
   }
   if (file.size > MAX_VIDEO_BYTES) {
-    throw new Error("GetPronto Free accepts videos up to 100 MB per file.");
+    throw new Error("GetPronto Free accepts media files up to 100 MB per file.");
   }
 
   onProgress("Requesting secure upload session…");
@@ -53,3 +53,5 @@ export async function uploadVideoToGetPronto(file, onProgress = () => {}) {
   onProgress("Video stored in GetPronto.");
   return confirmed.file;
 }
+
+export const uploadVideoToGetPronto = uploadMediaToGetPronto;
