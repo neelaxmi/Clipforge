@@ -71,8 +71,22 @@ Use precise timestamps. Return an empty moments array if no useful clip exists.`
     });
     if (!generationResponse.ok) {
       const detail = await generationResponse.text();
-      console.error("[Clipforge] Gemini generateContent error", generationResponse.status, detail.slice(0, 1600));
-      return sendJson(res, 502, { error: "Gemini analysis failed. Check your API access, model availability and quota." });
+      // Preserve Google's actual error for debugging, but never expose request headers/API keys.
+      let geminiError = {};
+      try { geminiError = JSON.parse(detail); } catch {}
+      const googleMessage = String(geminiError.error?.message || detail || "No error details returned").slice(0, 1800);
+      const diagnostic = {
+        stage: "gemini_generate_content",
+        httpStatus: generationResponse.status,
+        model,
+        googleCode: geminiError.error?.status || null,
+        googleMessage
+      };
+      console.error("[Clipforge][Gemini analysis diagnostic]", diagnostic);
+      return sendJson(res, 502, {
+        error: "Gemini analysis request failed.",
+        diagnostic
+      });
     }
     const generated = await generationResponse.json();
     const raw = generated.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("\n");
