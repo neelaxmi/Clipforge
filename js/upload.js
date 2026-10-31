@@ -201,7 +201,8 @@ export function bindUpload() {
     endInput.value = clip.endSeconds.toFixed(1);
     document.getElementById("trim-title").textContent = clip.title;
     updateTrimDuration();
-    sourceVideo.currentTime = clip.startSeconds;
+    if (sourceVideo) sourceVideo.currentTime = Math.min(clip.startSeconds, Math.max(0, sourceVideo.duration - 0.1));
+    else window.Clipforge.toast("Upload the original video file to preview or trim this YouTube moment.", "info");
     window.Clipforge.toast("Clip range loaded into the trim controls.", "success");
   };
 
