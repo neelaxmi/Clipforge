@@ -36,7 +36,6 @@ export function renderUpload() {
       </label>
       <button class="btn primary full" id="analyze-video" disabled>✧ Analyse video <span>→</span></button>
       <div class="analysis-status" id="analysis-status" aria-live="polite">Choose a video to begin.</div>
-  <div class="activity-panel" aria-live="polite"><div class="activity-head"><b>LIVE ACTIVITY LOG</b><button type="button" id="clear-activity-log">Clear</button></div><ol id="activity-log"><li class="log-muted">Waiting for an upload or analysis task…</li></ol></div>
       <div class="notice" style="margin-top:15px">Your video is uploaded directly to Google's Gemini File API using a temporary upload session. Gemini API keys stay on the Vercel server. Only analyse videos you own or have permission to use.</div>
     </section>
   </div>
@@ -82,22 +81,6 @@ export function bindUpload() {
   const trimStatus = document.getElementById("trim-status");
   let sourceVideo = null;
   let playbackStopper = null;
-  const activityLog = document.getElementById("activity-log");
-  function addActivity(message, level = "info") {
-    if (!activityLog) return;
-    const empty = activityLog.querySelector(".log-muted");
-    if (empty) empty.remove();
-    const row = document.createElement("li");
-    row.className = "log-" + level;
-    row.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
-    activityLog.appendChild(row);
-    while (activityLog.children.length > 40) activityLog.firstElementChild.remove();
-    activityLog.scrollTop = activityLog.scrollHeight;
-  }
-  document.getElementById("clear-activity-log").onclick = () => {
-    activityLog.innerHTML = '<li class="log-muted">Log cleared. New activity will appear here.</li>';
-  };
-  addActivity("Studio ready. Select a local video to begin.");
 
   choose.onclick = () => input.click();
   input.onchange = () => loadFile(input.files?.[0]);
@@ -131,7 +114,6 @@ export function bindUpload() {
     document.getElementById("analysis-status").textContent = "Video ready. Tap Analyse video.";
     trimStatus.textContent = "Trim preview engine loads only when you use it (about 31 MB on first use).";
     Logger.success("Video selected", { name: file.name, size: file.size, type: file.type });
-    addActivity("Selected " + file.name + " · " + (file.size / 1024 / 1024).toFixed(1) + " MB");
   }
 
   function updateTrimDuration() {
@@ -173,13 +155,12 @@ export function bindUpload() {
     if (!user) return window.Clipforge.toast("Your login session expired. Sign in again.", "error");
     analyzeButton.disabled = true;
     document.getElementById("analysis-status").textContent = "Starting secure upload…";
-    addActivity("Analysis requested. Preparing secure upload.");
     document.getElementById("clip-list").innerHTML = '<p class="muted small-copy">Gemini is analysing your video. Longer videos may take a few minutes.</p>';
     try {
       const token = await user.getIdToken();
       const result = await analyzeLocalVideo(currentFile, document.getElementById("clip-style").value, sourceVideo.duration, token, status => {
         document.getElementById("analysis-status").textContent = status;
-      }, message => addActivity(message));
+      });
       moments = result.moments || [];
       document.getElementById("video-summary").textContent = result.summary || "Analysis complete.";
       document.getElementById("clip-count").textContent = `${moments.length} MOMENTS`;
@@ -190,7 +171,6 @@ export function bindUpload() {
       Logger.success("Gemini video analysis complete", { count: moments.length, model: result.model });
     } catch (error) {
       Logger.error("Gemini analysis failed", error);
-      addActivity("ERROR: " + (error.message || "Unknown analysis failure"), "error");
       document.getElementById("analysis-status").textContent = error.message || "Analysis failed.";
       document.getElementById("clip-list").innerHTML = '<p class="muted small-copy">Analysis failed. Check your Firebase and Gemini server environment variables, then retry.</p>';
       window.Clipforge.toast(error.message || "Video analysis failed.", "error");
