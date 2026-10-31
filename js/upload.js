@@ -497,6 +497,7 @@ export function bindUpload() {
         sourceUrl:storedSource.url, clips:remixClips,
         aspectRatio:document.getElementById("remix-ratio").value,
         effect:document.getElementById("remix-effect").value,
+        transition:document.getElementById("remix-transition").value,
         transition:document.getElementById("remix-transition")?.value || "crossfade",
         overlayText:document.getElementById("remix-overlay-text").value,
         musicUrl, musicVolume:Number(document.getElementById("remix-music-volume").value),
