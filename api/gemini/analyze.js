@@ -29,7 +29,7 @@ export default async function handler(req, res) {
 
     const fileUrl = `https://generativelanguage.googleapis.com/v1beta/${fileName}`;
     let file = null;
-    for (let attempt = 0; attempt < 30; attempt++) {
+    for (let attempt = 0; attempt < 20; attempt++) {
       const statusResponse = await fetch(fileUrl, { headers: { "x-goog-api-key": key }, signal: AbortSignal.timeout(20000) });
       if (!statusResponse.ok) {
         const detail = await statusResponse.text();
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       file = await statusResponse.json();
       if (file.state === "ACTIVE") break;
       if (file.state === "FAILED") return sendJson(res, 422, { error: file.error?.message || "Gemini could not process this video." });
-      await wait(5000);
+      await wait(4000);
     }
     if (!file || file.state !== "ACTIVE") return sendJson(res, 504, { error: "Video processing is taking too long. Please retry in a minute." });
 
@@ -67,7 +67,7 @@ Use precise timestamps. Return an empty moments array if no useful clip exists.`
         contents: [{ role: "user", parts: [{ file_data: { mime_type: mimeType, file_uri: file.uri } }, { text: prompt }] }],
         generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
       }),
-      signal: AbortSignal.timeout(210000)
+      signal: AbortSignal.timeout(180000)
     });
     if (!generationResponse.ok) {
       const detail = await generationResponse.text();
