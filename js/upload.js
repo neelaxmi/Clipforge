@@ -1,13 +1,14 @@
 import Logger from "./logger.js";
 import { auth } from "./firebase.js";
 import { analyzeLocalVideo, analyzeYouTubeVideo } from "./gemini-video.js";
-import { createTrimPreview } from "./video-trimmer.js";
+import { createTrimPreview, createRemixExport } from "./video-trimmer.js";
 import { saveLocalItem, getLocalItem } from "./local-library.js";
 
 let currentFile = null;
 let currentUrl = null;
 let trimPreviewUrl = null;
 let moments = [];
+let remixClips = [];
 
 export function renderUpload() {
   return `
@@ -55,6 +56,20 @@ export function renderUpload() {
     <div id="clip-list" class="clip-list" style="margin-top:14px"><p class="muted small-copy">No analysis yet.</p></div>
   </section>
 
+  <div class="section-head"><h3>Phase 2 · Remix studio</h3><span class="tiny muted">MULTI-CLIP EDITOR</span></div>
+  <section class="card">
+    <div class="trim-top"><div><h3>Build a short-form video</h3><p class="muted small-copy">Add detected moments to your timeline, choose a format and export one joined MP4.</p></div><span class="status-pill">Local export</span></div>
+    <div class="trim-fields">
+      <label class="field">Output aspect ratio<select id="remix-ratio" class="select"><option value="9:16">9:16 · Reels / Shorts</option><option value="16:9">16:9 · YouTube</option><option value="1:1">1:1 · Square</option></select></label>
+      <label class="field">Timeline clips<input id="remix-count" class="input" value="0 clips" readonly></label>
+    </div>
+    <div id="remix-timeline" class="clip-list"><p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p></div>
+    <div class="tool-row"><button class="btn primary" id="export-remix" disabled>✦ Export joined MP4</button><button class="btn" id="clear-remix" style="background:#252d40">Clear timeline</button></div>
+    <div class="analysis-status" id="remix-status" aria-live="polite">Phase 2 editor ready. Your timeline is saved locally for 24 hours.</div>
+    <div id="remix-download" style="margin-top:12px"></div>
+    <p class="tiny muted">Export runs on this device. It crops to the selected ratio and re-encodes at high quality. Large videos may take time and need free phone memory.</p>
+  </section>
+
   <div class="section-head"><h3>Clip trim & preview</h3><span class="tiny muted">PHASE 1 · LOCAL PROCESSING</span></div>
   <section class="card trim-card">
     <div class="trim-top"><div><h3 id="trim-title">Select a detected moment</h3><p class="muted small-copy">Adjust the in/out points, then generate a real trimmed MP4 preview on this device.</p></div><span class="status-pill">On-device FFmpeg</span></div>
@@ -74,7 +89,7 @@ export function bindUpload() {
   // Release any previous page's temporary preview URLs.
   if (currentUrl) URL.revokeObjectURL(currentUrl);
   if (trimPreviewUrl) URL.revokeObjectURL(trimPreviewUrl);
-  currentFile = null; currentUrl = null; trimPreviewUrl = null; moments = [];
+  currentFile = null; currentUrl = null; trimPreviewUrl = null; moments = []; remixClips = [];
 
   const input = document.getElementById("video-file");
   const zone = document.getElementById("drop-zone");
@@ -87,6 +102,9 @@ export function bindUpload() {
   const durationInput = document.getElementById("trim-duration");
   const trimButton = document.getElementById("make-trim-preview");
   const rangeButton = document.getElementById("play-source-range");
+  const remixStatus = document.getElementById("remix-status");
+  const remixTimeline = document.getElementById("remix-timeline");
+  const exportRemixButton = document.getElementById("export-remix");
   const trimStatus = document.getElementById("trim-status");
   let sourceVideo = null;
   let playbackStopper = null;
@@ -280,11 +298,21 @@ export function bindUpload() {
         <div class="clip-details"><b>${escapeHtml(clip.title)}</b><small>${formatTime(clip.startSeconds)} — ${formatTime(clip.endSeconds)} · ${(clip.endSeconds-clip.startSeconds).toFixed(1)} sec</small>
         <p>${escapeHtml(clip.reason || clip.hook || "AI-selected highlight")}</p></div>
         <span class="score">${Math.round((clip.confidence || 0)*100)}%</span>
-        <button class="ghost-btn" data-select-clip="${index}">Set trim →</button>
+        <button class="ghost-btn" data-select-clip="${index}">Set trim →</button><button class="ghost-btn" data-add-remix="${index}">＋ Add to remix</button>
       </article>`).join("");
   }
 
   document.getElementById("clip-list").onclick = event => {
+    const addButton = event.target.closest("[data-add-remix]");
+    if (addButton) {
+      const clip = moments[Number(addButton.dataset.addRemix)];
+      if (!clip) return;
+      remixClips.push({ title:clip.title, startSeconds:Number(clip.startSeconds), endSeconds:Number(clip.endSeconds) });
+      saveLocalItem("remix-timeline", { kind:"remix-timeline", clips:remixClips }).catch(error => Logger.warn("Remix timeline save failed", error));
+      renderRemixTimeline();
+      remixStatus.textContent = "Clip added. Timeline is saved locally for 24 hours.";
+      return;
+    }
     const button = event.target.closest("[data-select-clip]");
     if (!button) return;
     const clip = moments[Number(button.dataset.selectClip)];
@@ -296,6 +324,43 @@ export function bindUpload() {
     if (sourceVideo) sourceVideo.currentTime = Math.min(clip.startSeconds, Math.max(0, sourceVideo.duration - 0.1));
     else window.Clipforge.toast("Upload the original video file to preview or trim this YouTube moment.", "info");
     window.Clipforge.toast("Clip range loaded into the trim controls.", "success");
+  };
+
+  function renderRemixTimeline() {
+    document.getElementById("remix-count").value = `${remixClips.length} clips`;
+    exportRemixButton.disabled = !currentFile || remixClips.length === 0;
+    remixTimeline.innerHTML = remixClips.length ? remixClips.map((clip,index) => `
+      <article class="clip-row"><div class="clip-thumb">${index+1}</div><div class="clip-details"><b>${escapeHtml(clip.title)}</b><small>${formatTime(clip.startSeconds)} — ${formatTime(clip.endSeconds)}</small></div><button class="ghost-btn" data-remove-remix="${index}">Remove</button></article>`).join("") : '<p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p>';
+  }
+  remixTimeline.onclick = event => {
+    const button = event.target.closest("[data-remove-remix]");
+    if (!button) return;
+    remixClips.splice(Number(button.dataset.removeRemix),1);
+    saveLocalItem("remix-timeline", { kind:"remix-timeline", clips:remixClips }).catch(()=>{});
+    renderRemixTimeline();
+  };
+  document.getElementById("clear-remix").onclick = () => {
+    remixClips = [];
+    saveLocalItem("remix-timeline", { kind:"remix-timeline", clips:[] }).catch(()=>{});
+    renderRemixTimeline();
+    remixStatus.textContent = "Timeline cleared.";
+  };
+  exportRemixButton.onclick = async () => {
+    if (!currentFile || !remixClips.length) return;
+    exportRemixButton.disabled = true;
+    remixStatus.textContent = "Starting Phase 2 export…";
+    try {
+      const blob = await createRemixExport(currentFile, remixClips, document.getElementById("remix-ratio").value, status => { remixStatus.textContent = status; });
+      await saveLocalItem("remix-export", { kind:"remix-export", blob, name:"clipforge-remix.mp4", type:"video/mp4" });
+      const url = URL.createObjectURL(blob);
+      document.getElementById("remix-download").innerHTML = '<a class="btn primary" id="download-remix" download="clipforge-remix.mp4" href="' + url + '">↓ Download final MP4</a>';
+      remixStatus.textContent = `Remix ready · ${(blob.size/1024/1024).toFixed(1)} MB · saved locally for 24 hours.`;
+      Logger.success("Phase 2 remix export complete", { bytes:blob.size, clips:remixClips.length });
+    } catch(error) {
+      remixStatus.textContent = error.message || "Remix export failed.";
+      Logger.error("Phase 2 remix export failed", error);
+      window.Clipforge.toast(error.message || "Remix export failed.", "error");
+    } finally { renderRemixTimeline(); }
   };
 
   rangeButton.onclick = async () => {
@@ -348,6 +413,14 @@ export function bindUpload() {
           : new File([savedSource.blob], savedSource.name || "restored-video.mp4", { type:savedSource.type || "video/mp4" });
         loadFile(restoredFile);
         addConsoleLine("SUCCESS", ["Restored source video from local browser storage."]);
+      }
+      const savedTimeline = await getLocalItem("remix-timeline");
+      if (savedTimeline?.clips) { remixClips = savedTimeline.clips; renderRemixTimeline(); }
+      const savedExport = await getLocalItem("remix-export");
+      if (savedExport?.blob) {
+        const exportUrl = URL.createObjectURL(savedExport.blob);
+        document.getElementById("remix-download").innerHTML = '<a class="btn primary" download="clipforge-remix.mp4" href="' + exportUrl + '">↓ Download saved final MP4</a>';
+        remixStatus.textContent = "Restored previous remix export from local browser storage.";
       }
       const savedSession = await getLocalItem("clipforge-session");
       if (savedSession?.moments) {
