@@ -79,6 +79,7 @@ export function renderUpload() {
       <label class="field">Export quality<select id="remix-quality" class="select"><option value="18">Very high · CRF 18</option><option value="20" selected>High · CRF 20</option><option value="23">Smaller file · CRF 23</option></select></label>
     </div>
     <label class="field">Cinematic title / overlay<input id="remix-overlay-text" class="input" maxlength="100" placeholder="e.g. THIS CHANGES EVERYTHING"></label>
+    <label class="field">Subtitles · one line per timeline clip<textarea id="remix-subtitles" class="textarea" rows="3" placeholder="First clip subtitle&#10;Second clip subtitle&#10;Third clip subtitle"></textarea></label>
     <div class="trim-fields">
       <label class="field">Background music<input id="remix-music" class="input" type="file" accept="audio/*"></label>
       <label class="field">Music volume<input id="remix-music-volume" class="input" type="range" min="0" max="1" step="0.05" value="0.22"></label>
@@ -502,6 +503,8 @@ export function bindUpload() {
         transition:document.getElementById("remix-transition").value,
         transition:document.getElementById("remix-transition")?.value || "crossfade",
         overlayText:document.getElementById("remix-overlay-text").value,
+        subtitles:document.getElementById("remix-subtitles").value,
+        originalVolume:Number(document.getElementById("remix-original-volume").value),
         musicUrl, musicVolume:Number(document.getElementById("remix-music-volume").value),
         speed:Number(document.getElementById("remix-speed").value)
       };
