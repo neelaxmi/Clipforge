@@ -38,7 +38,12 @@ Each moment should normally be 15-60 seconds. Use accurate timestamps from the v
 Return only JSON:
 {"summary":"one concise sentence","moments":[{"start_seconds":12.5,"end_seconds":43,"title":"Short title","hook":"Opening line","reason":"Why this moment works","confidence":0.9}]}
 Return an empty moments array if no useful clips exist.`;
-    const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+    // Vercel environment values can accidentally contain tabs/newlines/spaces.
+    // Normalize before building the Google API request path or JSON body.
+    const model = String(process.env.GEMINI_MODEL || "gemini-3.8-flash")
+      .replace(/^\\uFEFF/, "")
+      .trim()
+      .replace(/^models\\//, "");
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
       method: "POST",
       headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
