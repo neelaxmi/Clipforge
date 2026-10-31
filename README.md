@@ -6,7 +6,8 @@ Mobile-first creator PWA for analysing long videos and preparing short-form clip
 - Firebase Email/Password authentication.
 - Firebase ID-token verification on protected Vercel API routes.
 - Secure Gemini resumable File API upload session; video bytes upload directly from the browser to Google (not through Vercel's 4.5 MB function body limit).
-- Gemini video understanding finds timestamped hooks, highlights, educational moments, funny beats and story payoffs.
+- Gemini video understanding finds timestamped hooks, highlights, educational moments, funny beats and story payoffs from uploaded videos or public YouTube links.
+- Public YouTube links can be analysed without downloading the source; upload the original file separately if you want local trim preview.
 - AI result includes a short video summary, clip title, hook, reason and confidence score.
 - Browser video player, clip start/end controls, selected-range playback.
 - FFmpeg.wasm creates a real trimmed MP4 preview locally on the user's device.
@@ -36,7 +37,7 @@ This project now uses Vite for browser bundling and FFmpeg.wasm:
 The api/ folder contains Vercel Node.js Functions. The endpoints require a valid Firebase ID token.
 
 ### 4. Video analysis flow
-1. User selects an MP4, MOV or WebM file.
+1. User selects an MP4, MOV or WebM file, or submits a public YouTube video link for analysis only.
 2. The browser asks POST /api/gemini/upload-session for a temporary resumable upload URL.
 3. The browser sends the video directly to Gemini File API.
 4. Browser calls POST /api/gemini/analyze with the returned file reference and Firebase ID token.
@@ -62,4 +63,4 @@ The current trim output is a preview only. Saving/download, multiple-clip remix,
 - **Phase 3:** Instagram account connection, Reel publishing, scheduling and publish history.
 
 ## Privacy and rights
-Only analyse and edit videos you own or have permission to use. Gemini File API uploads are temporary and the API file is deleted after successful analysis. The app does not download videos from arbitrary YouTube links. A public video URL does not grant rights to download, edit or publish that footage.
+Only analyse and edit videos you own or have permission to use. Gemini File API uploads are temporary and the API file is deleted after successful analysis. YouTube URL analysis is limited to public videos. It does not download the source video; to trim a YouTube moment, upload the original video file that you own or are authorised to edit.
