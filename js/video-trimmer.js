@@ -115,7 +115,8 @@ export async function createRemixExport(file, clips, aspectRatio = "9:16", onSta
       if (!(Number(clip.endSeconds) > Number(clip.startSeconds))) continue;
       const name = `remix-part-${i}.mp4`;
       segmentNames.push(name);
-      const duration = (Number(clip.endSeconds)-Number(clip.startSeconds))/speed;
+      const sourceDuration = Number(clip.endSeconds)-Number(clip.startSeconds);
+      const duration = sourceDuration/speed;
       onStatus(`Rendering clip ${i+1} of ${clips.length} · ${Math.round((i/clips.length)*100)}%…`);
       const videoFilters = [
         `scale=${width}:${height}:force_original_aspect_ratio=increase`,
@@ -132,14 +133,14 @@ export async function createRemixExport(file, clips, aspectRatio = "9:16", onSta
         await makeOverlay(overlay, overlayText);
         await ffmpeg.exec([
           "-ss",String(clip.startSeconds),"-i",inputName,"-loop","1","-i",overlay,
-          "-t",String(duration),"-filter_complex",
+          "-t",String(sourceDuration),"-filter_complex",
           `[0:v]${videoFilters}[base];[1:v]format=rgba[title];[base][title]overlay=0:0:shortest=1[v]`,
           "-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf",quality,
           "-pix_fmt","yuv420p","-c:a","aac","-b:a","192k","-movflags","+faststart",name
         ]);
       } else {
         await ffmpeg.exec([
-          "-ss",String(clip.startSeconds),"-i",inputName,"-t",String(duration),
+          "-ss",String(clip.startSeconds),"-i",inputName,"-t",String(sourceDuration),
           "-map","0:v:0","-map","0:a?","-vf",videoFilters,
           "-c:v","libx264","-preset","veryfast","-crf",quality,"-pix_fmt","yuv420p",
           "-c:a","aac","-b:a","192k","-movflags","+faststart",name
