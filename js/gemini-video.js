@@ -43,3 +43,12 @@ export async function analyzeLocalVideo(file, style, durationSeconds, idToken, o
   }));
   return result;
 }
+
+export async function analyzeYouTubeVideo(url, style, idToken) {
+  const response = await fetch("/api/gemini/analyze-youtube", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ url, style })
+  });
+  return parseResponse(response);
+}
