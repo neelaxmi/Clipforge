@@ -1,16 +1,23 @@
 async function parseResponse(response) {
-  const data = await response.json().catch(async () => ({ raw: await response.text().catch(() => "") }));
+  // Read the body exactly once. Calling response.json() and then response.text()
+  // in a catch block consumes the stream and hides non-JSON Vercel error pages.
+  const raw = await response.text().catch(() => "");
+  let data = {};
+  try { data = raw ? JSON.parse(raw) : {}; }
+  catch { data = { raw }; }
   if (!response.ok) {
     const error = new Error(data.error || `Request failed (${response.status})`);
     error.status = response.status;
     error.diagnostic = data.diagnostic || {
       stage: "api_response",
       httpStatus: response.status,
-      response: String(data.raw || "").slice(0, 1800)
+      contentType: response.headers.get("content-type") || "unknown",
+      response: String(data.raw || raw || "(empty response body)").slice(0, 3000)
     };
     console.error("[Clipforge] API request failed", error.message, error.diagnostic);
     throw error;
   }
+  if (!raw) throw new Error("The server returned an empty response. Check Vercel Function Runtime Logs for this request.");
   return data;
 }
 function uploadWithProgress(uploadUrl, file, onProgress) {
