@@ -36,7 +36,14 @@ export function renderUpload() {
       </label>
       <button class="btn primary full" id="analyze-video" disabled>✧ Analyse video <span>→</span></button>
       <div class="analysis-status" id="analysis-status" aria-live="polite">Choose a video to begin.</div>
-      <pre id="analysis-debug" class="tiny" style="display:none;white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;margin-top:12px;padding:12px;border:1px solid #a94442;border-radius:10px;background:#211719;color:#ffd7d7;font:12px/1.5 monospace" aria-live="polite"></pre>
+      <section id="clipforge-console" aria-label="Live console" style="margin-top:14px;border:1px solid #34445d;border-radius:12px;overflow:hidden;background:#080d16;color:#d7e4f5">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 12px;background:#111b2b;border-bottom:1px solid #26364d">
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:#42d392;box-shadow:0 0 9px #42d392"></span><b style="font:600 12px/1.4 monospace;letter-spacing:.08em">LIVE CONSOLE</b><span id="console-count" style="font:11px monospace;color:#91a5bf">0 logs</span></div>
+          <div style="display:flex;gap:7px"><button type="button" id="console-copy" class="ghost-btn" style="font-size:11px">Copy logs</button><button type="button" id="console-clear" class="ghost-btn" style="font-size:11px">Clear</button></div>
+        </div>
+        <div id="console-output" role="log" aria-live="polite" style="height:210px;overflow:auto;padding:10px 12px;font:11px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere"></div>
+        <div style="padding:7px 12px;border-top:1px solid #26364d;color:#91a5bf;font:10px/1.4 monospace">LIVE · SUCCESS / INFO / WARN / ERROR · Copy logs to share diagnostics</div>
+      </section>
       <div class="notice" style="margin-top:15px">Your video is uploaded directly to Google's Gemini File API using a temporary upload session. Gemini API keys stay on the Vercel server. Only analyse videos you own or have permission to use.</div>
     </section>
   </div>
@@ -82,6 +89,68 @@ export function bindUpload() {
   const trimStatus = document.getElementById("trim-status");
   let sourceVideo = null;
   let playbackStopper = null;
+
+  // Route browser console output and runtime errors into this visible panel.
+  const consoleOutput = document.getElementById("console-output");
+  const consoleCount = document.getElementById("console-count");
+  const consoleLines = [];
+  const maxConsoleLines = 250;
+  const formatLog = value => {
+    if (value instanceof Error) return value.stack || value.message;
+    if (typeof value === "string") return value;
+    try { return JSON.stringify(value, (key, item) => {
+      if (typeof item === "bigint") return String(item);
+      if (item instanceof Error) return { name:item.name, message:item.message, stack:item.stack };
+      return item;
+    }); } catch { return String(value); }
+  };
+  const addConsoleLine = (level, args) => {
+    const time = new Date().toLocaleTimeString();
+    const message = args.map(formatLog).join(" ");
+    consoleLines.push({ time, level, message });
+    if (consoleLines.length > maxConsoleLines) consoleLines.shift();
+    const colors = { LOG:"#cbd5e1", INFO:"#93c5fd", SUCCESS:"#6ee7b7", WARN:"#fbbf24", ERROR:"#fca5a5" };
+    const row = document.createElement("div");
+    row.style.color = colors[level] || colors.LOG;
+    row.textContent = "[" + time + "] [" + level + "] " + message;
+    consoleOutput.appendChild(row);
+    while (consoleOutput.children.length > maxConsoleLines) consoleOutput.removeChild(consoleOutput.firstChild);
+    consoleCount.textContent = consoleLines.length + " logs";
+    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+  };
+  if (!window.__clipforgeConsoleCapture) {
+    window.__clipforgeConsoleCapture = true;
+    ["log","info","warn","error"].forEach(method => {
+      const original = console[method].bind(console);
+      console[method] = (...args) => {
+        original(...args);
+        window.dispatchEvent(new CustomEvent("clipforge:console", { detail:{ level:method.toUpperCase(), args } }));
+      };
+    });
+    window.addEventListener("error", event => window.dispatchEvent(new CustomEvent("clipforge:console", { detail:{ level:"ERROR", args:[event.message, event.filename, "line " + event.lineno] } })));
+    window.addEventListener("unhandledrejection", event => window.dispatchEvent(new CustomEvent("clipforge:console", { detail:{ level:"ERROR", args:["Unhandled promise rejection:", event.reason] } })));
+  }
+  const consoleListener = event => addConsoleLine(event.detail.level, event.detail.args);
+  window.addEventListener("clipforge:console", consoleListener);
+  addConsoleLine("SUCCESS", ["Live console connected."]);
+  addConsoleLine("INFO", ["Upload, Gemini, browser and app logs will appear here."]);
+  document.getElementById("console-clear").onclick = () => {
+    consoleLines.length = 0; consoleOutput.innerHTML = ""; consoleCount.textContent = "0 logs";
+    addConsoleLine("INFO", ["Console cleared."]);
+  };
+  document.getElementById("console-copy").onclick = async () => {
+    const text = consoleLines.map(line => "[" + line.time + "] [" + line.level + "] " + line.message).join("\\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      addConsoleLine("SUCCESS", ["Logs copied. Paste them into this chat."]);
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text; area.style.position = "fixed"; area.style.opacity = "0";
+      document.body.appendChild(area); area.select();
+      const copied = document.execCommand("copy"); area.remove();
+      addConsoleLine(copied ? "SUCCESS" : "ERROR", [copied ? "Logs copied. Paste them into this chat." : "Copy failed; manually select the console text."]);
+    }
+  };
 
   choose.onclick = () => input.click();
   input.onchange = () => loadFile(input.files?.[0]);
@@ -156,16 +225,16 @@ export function bindUpload() {
     if (!user) return window.Clipforge.toast("Your login session expired. Sign in again.", "error");
     analyzeButton.disabled = true;
     document.getElementById("analysis-status").textContent = "Starting secure upload…";
-    const debugBox = document.getElementById("analysis-debug");
-    debugBox.style.display = "none";
-    debugBox.textContent = "";
+    addConsoleLine("INFO", ["Starting video analysis: " + currentFile.name + " (" + (currentFile.size / 1024 / 1024).toFixed(1) + " MB)"]);
     document.getElementById("clip-list").innerHTML = '<p class="muted small-copy">Gemini is analysing your video. Longer videos may take a few minutes.</p>';
     try {
       const token = await user.getIdToken();
       const result = await analyzeLocalVideo(currentFile, document.getElementById("clip-style").value, sourceVideo.duration, token, status => {
         document.getElementById("analysis-status").textContent = status;
+        addConsoleLine("INFO", [status]);
       });
       moments = result.moments || [];
+      addConsoleLine("SUCCESS", ["Gemini analysis completed.", { count:moments.length, model:result.model || "Gemini" }]);
       document.getElementById("video-summary").textContent = result.summary || "Analysis complete.";
       document.getElementById("clip-count").textContent = `${moments.length} MOMENTS`;
       renderMoments();
@@ -188,18 +257,8 @@ export function bindUpload() {
       });
       Logger.error("Gemini analysis failed", { message: error.message, status: error.status, diagnostic });
       document.getElementById("analysis-status").textContent = "Analysis failed — diagnostic details are shown below.";
-      const debugBox = document.getElementById("analysis-debug");
-      debugBox.style.display = "block";
-      debugBox.textContent = [
-        "CLIPFORGE GEMINI ERROR",
-        "Time: " + new Date().toLocaleString(),
-        "Message: " + (error.message || "Unknown error"),
-        "HTTP status: " + (error.status || diagnostic.httpStatus || "Not available"),
-        "",
-        "DIAGNOSTIC:",
-        JSON.stringify(diagnostic, null, 2)
-      ].join("\n");
-      document.getElementById("clip-list").innerHTML = '<p class="muted small-copy">Analysis failed. The exact diagnostic is displayed above and logged in the browser console.</p>';
+      addConsoleLine("ERROR", ["Gemini analysis failed.", { message:error.message || "Unknown error", status:error.status || diagnostic.httpStatus || null, diagnostic, timestamp:new Date().toISOString() }]);
+      document.getElementById("clip-list").innerHTML = '<p class="muted small-copy">Analysis failed. Exact diagnostics are available in the Live Console above.</p>';
       window.Clipforge.toast(error.message || "Video analysis failed.", "error");
     } finally {
       analyzeButton.disabled = false;
