@@ -1,6 +1,16 @@
 async function parseResponse(response) {
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+  const data = await response.json().catch(async () => ({ raw: await response.text().catch(() => "") }));
+  if (!response.ok) {
+    const error = new Error(data.error || `Request failed (${response.status})`);
+    error.status = response.status;
+    error.diagnostic = data.diagnostic || {
+      stage: "api_response",
+      httpStatus: response.status,
+      response: String(data.raw || "").slice(0, 1800)
+    };
+    console.error("[Clipforge] API request failed", error.message, error.diagnostic);
+    throw error;
+  }
   return data;
 }
 function uploadWithProgress(uploadUrl, file, onProgress) {
