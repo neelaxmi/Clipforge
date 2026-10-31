@@ -3,6 +3,7 @@ import { auth } from "./firebase.js";
 import { analyzeLocalVideo, analyzeYouTubeVideo } from "./gemini-video.js";
 import { createTrimPreview, createRemixExport } from "./video-trimmer.js";
 import { saveLocalItem, getLocalItem } from "./local-library.js";
+import { uploadVideoToGetPronto } from "./getpronto-storage.js";
 
 let currentFile = null;
 let currentUrl = null;
@@ -24,6 +25,9 @@ export function renderUpload() {
       </div>
       <div class="video-box" id="video-preview"><span>Original video preview appears here</span></div>
       <div id="video-meta" class="tiny muted" style="margin-top:10px">No video selected</div>
+      <button class="btn" id="cloud-source-upload" disabled style="margin-top:12px;background:#1d2940;width:100%">☁ Store source in GetPronto</button>
+      <div id="cloud-source-status" class="analysis-status" aria-live="polite">Optional cloud copy · Free plan: up to 100 MB per video.</div>
+      <p class="tiny muted">Privacy notice: GetPronto's returned file URL is publicly accessible to anyone who has the link. Upload only videos you are comfortable sharing by link.</p>
     </section>
     <section class="card">
       <div class="section-head"><h3>AI moment detection</h3><span class="tiny muted">GEMINI VIDEO AI</span></div>
@@ -96,6 +100,8 @@ export function bindUpload() {
   const choose = document.getElementById("choose-video");
   const originalBox = document.getElementById("video-preview");
   const meta = document.getElementById("video-meta");
+  const cloudUploadButton = document.getElementById("cloud-source-upload");
+  const cloudStatus = document.getElementById("cloud-source-status");
   const analyzeButton = document.getElementById("analyze-video");
   const startInput = document.getElementById("trim-start");
   const endInput = document.getElementById("trim-end");
@@ -174,6 +180,38 @@ export function bindUpload() {
   };
 
   choose.onclick = () => input.click();
+
+  cloudUploadButton.onclick = async () => {
+    if (!currentFile) return window.Clipforge.toast("Choose a source video first.", "error");
+    cloudUploadButton.disabled = true;
+    try {
+      const stored = await uploadVideoToGetPronto(currentFile, status => {
+        cloudStatus.textContent = status;
+        addConsoleLine("INFO", ["GetPronto:", status]);
+      });
+      await saveLocalItem("getpronto-source-video", {
+        kind:"getpronto-source-video", fileId:stored.id, name:stored.name,
+        url:stored.url, rawUrl:stored.rawUrl, size:stored.size, type:stored.type
+      });
+      cloudStatus.replaceChildren();
+      const label = document.createElement("span");
+      label.textContent = "Stored successfully · ";
+      const link = document.createElement("a");
+      link.href = stored.url; link.target = "_blank"; link.rel = "noopener noreferrer";
+      link.textContent = "Open cloud video";
+      cloudStatus.append(label, link);
+      addConsoleLine("SUCCESS", ["Source video stored in GetPronto.", { id:stored.id, size:stored.size }]);
+      Logger.success("GetPronto source upload complete", { id:stored.id, size:stored.size });
+      window.Clipforge.toast("Source video stored in GetPronto.", "success");
+    } catch (error) {
+      cloudStatus.textContent = error.message || "GetPronto upload failed.";
+      addConsoleLine("ERROR", ["GetPronto upload failed:", error.message]);
+      Logger.error("GetPronto source upload failed", error);
+      window.Clipforge.toast(error.message || "GetPronto upload failed.", "error");
+    } finally {
+      cloudUploadButton.disabled = !currentFile || currentFile.size > 100 * 1024 * 1024;
+    }
+  };
   input.onchange = () => loadFile(input.files?.[0]);
   zone.ondragover = event => { event.preventDefault(); zone.classList.add("drag"); };
   zone.ondragleave = () => zone.classList.remove("drag");
@@ -199,6 +237,13 @@ export function bindUpload() {
       if (typeof renderRemixTimeline === "function") renderRemixTimeline();
     };
     meta.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB · Reading duration…`;
+    cloudUploadButton.disabled = file.size > 100 * 1024 * 1024;
+    cloudUploadButton.textContent = file.size > 100 * 1024 * 1024
+      ? "GetPronto limit: 100 MB per video"
+      : "☁ Store source in GetPronto";
+    cloudStatus.textContent = file.size > 100 * 1024 * 1024
+      ? "This source is too large for GetPronto Free. Local editing and Gemini analysis remain available."
+      : "Optional cloud copy · Free plan: up to 100 MB per video.";
     document.getElementById("clip-list").innerHTML = '<p class="muted small-copy">Run Gemini analysis to find clip moments.</p>';
     document.getElementById("clip-count").textContent = "0 MOMENTS";
     document.getElementById("video-summary").textContent = "Ready for Gemini analysis.";
