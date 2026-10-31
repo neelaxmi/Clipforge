@@ -1,0 +1,6 @@
+{
+  "name":"Clipforge AI","short_name":"Clipforge","start_url":"./","display":"standalone",
+  "background_color":"#090b14","theme_color":"#090b14",
+  "description":"Your personal short-form video studio",
+  "icons":[{"src":"./assets/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
