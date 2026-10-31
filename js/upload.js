@@ -86,6 +86,7 @@ export function renderUpload() {
     <div id="remix-timeline" class="clip-list"><p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p></div>
     <div class="tool-row"><button class="btn primary" id="export-remix" disabled>✦ Export joined MP4</button><button class="btn" id="clear-remix" style="background:#252d40">Clear timeline</button></div>
     <div class="tool-row"><button class="btn" id="cloud-render-remix" disabled style="background:linear-gradient(110deg,#225c79,#5140a1)">☁ Render in cloud (background)</button><button class="btn" id="check-cloud-render" style="background:#252d40">Check cloud job</button></div>
+    <div class="tool-row"><button class="btn" id="radox-director" disabled style="background:linear-gradient(110deg,#6541a5,#b44f86)">✧ AI Director · RadoxAI</button></div><div class="analysis-status" id="radox-director-status" aria-live="polite">AI Director creates a hook-first order, title, visual grade and transition. Add RADOXAI_API_KEY + RADOXAI_MODEL later.</div>
     <div class="analysis-status" id="cloud-render-status" aria-live="polite">Cloud rendering needs GetPronto + Rendobar API keys. Local rendering works without keys.</div><div id="cloud-render-download" style="margin-top:12px"></div>
     <div class="analysis-status" id="remix-status" aria-live="polite">Phase 2 editor ready. Your timeline is saved locally for 24 hours.</div>
     <div id="remix-download" style="margin-top:12px"></div>
@@ -132,6 +133,8 @@ export function bindUpload() {
   const cloudRenderButton = document.getElementById("cloud-render-remix");
   const cloudStatus = document.getElementById("cloud-render-status");
   const cloudDownload = document.getElementById("cloud-render-download");
+  const directorButton = document.getElementById("radox-director");
+  const directorStatus = document.getElementById("radox-director-status");
   const trimStatus = document.getElementById("trim-status");
   let sourceVideo = null;
   let playbackStopper = null;
@@ -397,6 +400,7 @@ export function bindUpload() {
     document.getElementById("remix-count").value = `${remixClips.length} clips`;
     exportRemixButton.disabled = !currentFile || remixClips.length === 0;
     cloudRenderButton.disabled = !currentFile || remixClips.length === 0;
+    directorButton.disabled = remixClips.length === 0;
     remixTimeline.innerHTML = remixClips.length ? remixClips.map((clip,index) => `
       <article class="clip-row"><div class="clip-thumb">${index+1}</div><div class="clip-details"><b>${escapeHtml(clip.title)}</b><small>${formatTime(clip.startSeconds)} — ${formatTime(clip.endSeconds)}</small></div><button class="ghost-btn" data-move-up="${index}" ${index===0?"disabled":""} aria-label="Move clip up">↑</button><button class="ghost-btn" data-move-down="${index}" ${index===remixClips.length-1?"disabled":""} aria-label="Move clip down">↓</button><button class="ghost-btn" data-remove-remix="${index}">Remove</button></article>`).join("") : '<p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p>';
   }
@@ -418,6 +422,31 @@ export function bindUpload() {
     remixClips.splice(Number(remove.dataset.removeRemix),1);
     saveLocalItem("remix-timeline", { kind:"remix-timeline", clips:remixClips }).catch(()=>{});
     renderRemixTimeline();
+  };
+  directorButton.onclick = async () => {
+    if (!remixClips.length) return;
+    directorButton.disabled = true;
+    directorStatus.textContent = "RadoxAI is building a hook-first edit plan…";
+    try {
+      const result = await createRadoxEditPlan(remixClips, "cinematic Instagram Reels trailer");
+      const plan = result.plan;
+      const original = remixClips.map((clip,index)=>({...clip,_originalIndex:index}));
+      remixClips = plan.recommendedOrder.map(index=>original[index]).filter(Boolean).map(clip=>{const copy={...clip};delete copy._originalIndex;return copy;});
+      plan.clipTitles.forEach((title,index)=>{ if (title && original[index]) original[index].title=title; });
+      remixClips = plan.recommendedOrder.map(index=>original[index]).filter(Boolean).map(clip=>{const copy={...clip};delete copy._originalIndex;return copy;});
+      document.getElementById("remix-effect").value = plan.effect;
+      document.getElementById("remix-transition").value = plan.transition;
+      document.getElementById("remix-overlay-text").value = plan.overlayText;
+      saveLocalItem("remix-timeline",{kind:"remix-timeline",clips:remixClips}).catch(()=>{});
+      renderRemixTimeline();
+      directorStatus.textContent = plan.rationale + " · " + result.model;
+      addConsoleLine("SUCCESS",["RadoxAI edit plan applied.",plan]);
+      window.Clipforge.toast("AI Director applied its edit plan.","success");
+    } catch(error) {
+      directorStatus.textContent = error.message || "AI Director unavailable. Manual editing still works."; 
+      addConsoleLine("ERROR",["RadoxAI director failed:",error.message]);
+      window.Clipforge.toast(error.message || "AI Director failed.","error");
+    } finally { directorButton.disabled = remixClips.length===0; }
   };
   async function monitorCloudJob(jobId) {
     cloudStatus.textContent = "Checking cloud job " + jobId + "…";
