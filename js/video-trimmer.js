@@ -133,16 +133,16 @@ export async function createRemixExport(file, clips, aspectRatio = "9:16", onSta
         overlayNames.push(overlay);
         await makeOverlay(overlay, overlayText);
         await ffmpeg.exec([
-          "-ss",String(clip.startSeconds),"-i",inputName,"-loop","1","-i",overlay,
-          "-t",String(sourceDuration),"-filter_complex",
+          "-ss",String(clip.startSeconds),"-t",String(sourceDuration),"-i",inputName,"-loop","1","-i",overlay,
+          "-filter_complex",
           `[0:v]${videoFilters}[base];[1:v]format=rgba,fade=t=in:st=0:d=0.45:alpha=1[title];[base][title]overlay=0:0:shortest=1[v]`,
-          "-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf",quality,
+          "-map","[v]","-map","0:a?","-af",`atempo=${speed}`,"-c:v","libx264","-preset","veryfast","-crf",quality,
           "-pix_fmt","yuv420p","-c:a","aac","-b:a","192k","-movflags","+faststart",name
         ]);
       } else {
         await ffmpeg.exec([
-          "-ss",String(clip.startSeconds),"-i",inputName,"-t",String(sourceDuration),
-          "-map","0:v:0","-map","0:a?","-vf",videoFilters,
+          "-ss",String(clip.startSeconds),"-t",String(sourceDuration),"-i",inputName,
+          "-map","0:v:0","-map","0:a?","-vf",videoFilters,"-af",`atempo=${speed}`,
           "-c:v","libx264","-preset","veryfast","-crf",quality,"-pix_fmt","yuv420p",
           "-c:a","aac","-b:a","192k","-movflags","+faststart",name
         ]);
