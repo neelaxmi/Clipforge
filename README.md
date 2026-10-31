@@ -50,7 +50,7 @@ ClipForge keeps local editing available without any provider keys.
 
 The local editor supports reorderable clip timelines, 9:16/16:9/1:1 exports, cinematic/warm/vivid/mono/noir grades, fade-in/out, animated title overlays, speed changes and optional background music mixing. It stores the edit session and assets in IndexedDB for up to 24 hours. Android local exports are limited to 250 MB source size to reduce memory crashes.
 
-Cloud Compose supports crossfade, fade, slide, push, zoom, wipe and hard cuts; per-clip trims and speed; cinematic looks and colour grading; kinetic word-by-word titles; and a background music track. Jobs continue on Rendobar's servers after the phone is closed. Reopen ClipForge and use **Check cloud job** to resume tracking. Rendobar keeps Free outputs for 7 days.
+Cloud Compose supports crossfade, fade, slide, push, zoom, wipe and hard cuts; per-clip trims and speed; cinematic looks and colour grading; kinetic word-by-word titles, timed per-clip subtitle overlays; and a background music track. Jobs continue on Rendobar's servers after the phone is closed. Reopen ClipForge and use **Check cloud job** to resume tracking. Rendobar keeps Free outputs for 7 days.
 
 ### 3. Vercel deployment
 This project now uses Vite for browser bundling and FFmpeg.wasm:
