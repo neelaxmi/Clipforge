@@ -64,6 +64,7 @@ export async function createRemixExport(file, clips, aspectRatio = "9:16", onSta
   const segmentNames = [];
   const overlayNames = [];
   const speed = Math.max(0.5, Math.min(2, Number(options.speed) || 1));
+  const useFade = String(options.transition || "fade") !== "none";
   const quality = ["18","20","23"].includes(String(options.quality)) ? String(options.quality) : "20";
   const effects = {
     clean: "",
