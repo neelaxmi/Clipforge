@@ -61,10 +61,14 @@ Use precise timestamps. Return an empty moments array if no useful clip exists.`
 
     // Vercel environment values can accidentally contain tabs/newlines/spaces.
     // Normalize before building the Google API request path or JSON body.
-    const model = String(process.env.GEMINI_MODEL || "gemini-3.8-flash")
+    const configuredModel = String(process.env.GEMINI_MODEL || "")
       .replace(/^\uFEFF/, "")
       .trim()
       .replace(/^models\//, "");
+    // Never treat an environment-variable name/placeholder as a Gemini model ID.
+    const model = !configuredModel || /^(GEMINI_[A-Z0-9_]+|YOUR[_ -].*|CHANGE[_ -].*|MODEL[_ -]?NAME)$/i.test(configuredModel)
+      ? "gemini-3.8-flash"
+      : configuredModel;
     const generationResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
       headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
