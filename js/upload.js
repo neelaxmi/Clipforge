@@ -130,7 +130,9 @@ export function bindUpload() {
     window.addEventListener("error", event => window.dispatchEvent(new CustomEvent("clipforge:console", { detail:{ level:"ERROR", args:[event.message, event.filename, "line " + event.lineno] } })));
     window.addEventListener("unhandledrejection", event => window.dispatchEvent(new CustomEvent("clipforge:console", { detail:{ level:"ERROR", args:["Unhandled promise rejection:", event.reason] } })));
   }
+  if (window.__clipforgeConsoleListener) window.removeEventListener("clipforge:console", window.__clipforgeConsoleListener);
   const consoleListener = event => addConsoleLine(event.detail.level, event.detail.args);
+  window.__clipforgeConsoleListener = consoleListener;
   window.addEventListener("clipforge:console", consoleListener);
   addConsoleLine("SUCCESS", ["Live console connected."]);
   addConsoleLine("INFO", ["Upload, Gemini, browser and app logs will appear here."]);
