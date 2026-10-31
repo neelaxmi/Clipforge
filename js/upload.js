@@ -83,6 +83,8 @@ export function renderUpload() {
     <div id="remix-music-status" class="tiny muted">Optional music track · MP3, WAV, M4A and other browser-supported audio.</div>
     <div id="remix-timeline" class="clip-list"><p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p></div>
     <div class="tool-row"><button class="btn primary" id="export-remix" disabled>✦ Export joined MP4</button><button class="btn" id="clear-remix" style="background:#252d40">Clear timeline</button></div>
+    <div class="tool-row"><button class="btn" id="cloud-render-remix" disabled style="background:linear-gradient(110deg,#225c79,#5140a1)">☁ Render in cloud (background)</button><button class="btn" id="check-cloud-render" style="background:#252d40">Check cloud job</button></div>
+    <div class="analysis-status" id="cloud-render-status" aria-live="polite">Cloud rendering needs GetPronto + Rendobar API keys. Local rendering works without keys.</div><div id="cloud-render-download" style="margin-top:12px"></div>
     <div class="analysis-status" id="remix-status" aria-live="polite">Phase 2 editor ready. Your timeline is saved locally for 24 hours.</div>
     <div id="remix-download" style="margin-top:12px"></div>
     <p class="tiny muted">Local export supports cinematic colour grades, fade transitions, title overlays, speed changes and optional music mix. Cloud rendering will be optional once its API key is added.</p>
@@ -125,6 +127,9 @@ export function bindUpload() {
   const remixStatus = document.getElementById("remix-status");
   const remixTimeline = document.getElementById("remix-timeline");
   const exportRemixButton = document.getElementById("export-remix");
+  const cloudRenderButton = document.getElementById("cloud-render-remix");
+  const cloudStatus = document.getElementById("cloud-render-status");
+  const cloudDownload = document.getElementById("cloud-render-download");
   const trimStatus = document.getElementById("trim-status");
   let sourceVideo = null;
   let playbackStopper = null;
@@ -389,6 +394,7 @@ export function bindUpload() {
   function renderRemixTimeline() {
     document.getElementById("remix-count").value = `${remixClips.length} clips`;
     exportRemixButton.disabled = !currentFile || remixClips.length === 0;
+    cloudRenderButton.disabled = !currentFile || remixClips.length === 0;
     remixTimeline.innerHTML = remixClips.length ? remixClips.map((clip,index) => `
       <article class="clip-row"><div class="clip-thumb">${index+1}</div><div class="clip-details"><b>${escapeHtml(clip.title)}</b><small>${formatTime(clip.startSeconds)} — ${formatTime(clip.endSeconds)}</small></div><button class="ghost-btn" data-move-up="${index}" ${index===0?"disabled":""} aria-label="Move clip up">↑</button><button class="ghost-btn" data-move-down="${index}" ${index===remixClips.length-1?"disabled":""} aria-label="Move clip down">↓</button><button class="ghost-btn" data-remove-remix="${index}">Remove</button></article>`).join("") : '<p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p>';
   }
