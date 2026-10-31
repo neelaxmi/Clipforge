@@ -38,6 +38,9 @@ function makeTimeline(body, source) {
   const selectedEffects = effectMap[body.effect] || effectMap.cinematic;
   const clips = [];
   const titles = [];
+  const subtitles = [];
+  const subtitleLines = String(body.subtitles || "").split(/\r?\n/).map(line=>line.trim()).slice(0,MAX_CLIPS);
+  const originalVolume = Math.max(0,Math.min(1.5,Number(body.originalVolume ?? 0.8)));
   let cursor = 0;
   let total = 0;
   body.clips.forEach((clip,index) => {
@@ -48,7 +51,7 @@ function makeTimeline(body, source) {
     const duration = (to-from)/speed;
     total += duration;
     clips.push({
-      asset:{type:"video",src:source,trim:{from,to}},
+      asset:{type:"video",src:source,trim:{from,to},volume:originalVolume},
       speed,
       effects:selectedEffects
     });
@@ -68,6 +71,23 @@ function makeTimeline(body, source) {
         transform:{position:{x:"50%",y:"73%"}}
       });
     }
+    const subtitle = subtitleLines[index] || "";
+    if (subtitle) {
+      subtitles.push({
+        asset:{
+          type:"text",text:subtitle,
+          style:{
+            font:"Inter",size:Math.round(width*0.034),weight:700,color:"#FFFFFF",
+            align:"center",background:"#000000A6",
+            shadow:{opacity:0.55,offsetX:2,offsetY:2},
+            animate:{type:"fade",duration:0.35}
+          }
+        },
+        start:cursor+0.25,
+        length:Math.max(0.4,duration-0.25),
+        transform:{position:{x:"50%",y:"87%"}}
+      });
+    }
     cursor += duration;
     if (index < body.clips.length-1) {
       if (transitionDuration) clips.push({type:"transition",transition,duration:transitionDuration});
@@ -79,7 +99,7 @@ function makeTimeline(body, source) {
     error.statusCode = 400;
     throw error;
   }
-  const tracks = [{name:"picture",clips},{name:"kinetic-titles",clips:titles}];
+  const tracks = [{name:"picture",clips},{name:"kinetic-titles",clips:titles},{name:"subtitles",clips:subtitles}];
   const music = safeMediaUrl(body.musicUrl);
   if (music) tracks.push({name:"music",clips:[{
     asset:{type:"audio",src:music,volume:Math.max(0,Math.min(1,Number(body.musicVolume ?? 0.22))),fadeIn:0.8,fadeOut:1.5},
