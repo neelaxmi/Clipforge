@@ -67,6 +67,19 @@ export function renderUpload() {
       <label class="field">Output aspect ratio<select id="remix-ratio" class="select"><option value="9:16">9:16 · Reels / Shorts</option><option value="16:9">16:9 · YouTube</option><option value="1:1">1:1 · Square</option></select></label>
       <label class="field">Timeline clips<input id="remix-count" class="input" value="0 clips" readonly></label>
     </div>
+    <div class="section-head"><h3>Creative controls</h3><span class="tiny muted">LOCAL EFFECTS ENGINE</span></div>
+    <div class="trim-fields remix-controls">
+      <label class="field">Visual grade<select id="remix-effect" class="select"><option value="cinematic">Cinematic · contrast + vignette</option><option value="clean">Clean original</option><option value="warm">Warm film</option><option value="vivid">Vivid pop</option><option value="mono">Black & white</option><option value="noir">Noir drama</option></select></label>
+      <label class="field">Playback speed<select id="remix-speed" class="select"><option value="1">Normal · 1x</option><option value="0.75">Slow · 0.75x</option><option value="0.5">Slow motion · 0.5x</option><option value="1.25">Fast · 1.25x</option><option value="1.5">Fast · 1.5x</option><option value="2">2x</option></select></label>
+      <label class="field">Export quality<select id="remix-quality" class="select"><option value="18">Very high · CRF 18</option><option value="20" selected>High · CRF 20</option><option value="23">Smaller file · CRF 23</option></select></label>
+    </div>
+    <label class="field">Cinematic title / overlay<input id="remix-overlay-text" class="input" maxlength="100" placeholder="e.g. THIS CHANGES EVERYTHING"></label>
+    <div class="trim-fields">
+      <label class="field">Background music<input id="remix-music" class="input" type="file" accept="audio/*"></label>
+      <label class="field">Music volume<input id="remix-music-volume" class="input" type="range" min="0" max="1" step="0.05" value="0.22"></label>
+      <label class="field">Original audio<input id="remix-original-volume" class="input" type="range" min="0" max="1.5" step="0.05" value="0.8"></label>
+    </div>
+    <div id="remix-music-status" class="tiny muted">Optional music track · MP3, WAV, M4A and other browser-supported audio.</div>
     <div id="remix-timeline" class="clip-list"><p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p></div>
     <div class="tool-row"><button class="btn primary" id="export-remix" disabled>✦ Export joined MP4</button><button class="btn" id="clear-remix" style="background:#252d40">Clear timeline</button></div>
     <div class="analysis-status" id="remix-status" aria-live="polite">Phase 2 editor ready. Your timeline is saved locally for 24 hours.</div>
