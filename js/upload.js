@@ -379,7 +379,7 @@ export function bindUpload() {
     if (addButton) {
       const clip = moments[Number(addButton.dataset.addRemix)];
       if (!clip) return;
-      remixClips.push({ title:clip.title, startSeconds:Number(clip.startSeconds), endSeconds:Number(clip.endSeconds) });
+      remixClips.push({ title:clip.title, reason:clip.reason || clip.hook || "", startSeconds:Number(clip.startSeconds), endSeconds:Number(clip.endSeconds) });
       saveLocalItem("remix-timeline", { kind:"remix-timeline", clips:remixClips }).catch(error => Logger.warn("Remix timeline save failed", error));
       renderRemixTimeline();
       remixStatus.textContent = "Clip added. Timeline is saved locally for 24 hours.";
