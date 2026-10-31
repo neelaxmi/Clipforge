@@ -2,6 +2,7 @@ import Logger from "./logger.js";
 import { auth } from "./firebase.js";
 import { analyzeLocalVideo, analyzeYouTubeVideo } from "./gemini-video.js";
 import { createTrimPreview } from "./video-trimmer.js";
+import { saveLocalItem, getLocalItem } from "./local-library.js";
 
 let currentFile = null;
 let currentUrl = null;
@@ -167,6 +168,7 @@ export function bindUpload() {
     if (currentUrl) URL.revokeObjectURL(currentUrl);
     if (trimPreviewUrl) URL.revokeObjectURL(trimPreviewUrl);
     currentFile = file; currentUrl = URL.createObjectURL(file); trimPreviewUrl = null; moments = [];
+    saveLocalItem("source-video", { kind:"source-video", blob:file, name:file.name, type:file.type, size:file.size }).then(() => addConsoleLine("SUCCESS", ["Original video saved in this browser for 24 hours."])).catch(error => { addConsoleLine("WARN", ["Could not save source video locally:", error.message]); Logger.warn("Local source save failed", error); });
     originalBox.innerHTML = '<video id="source-video" controls playsinline preload="metadata"></video>';
     sourceVideo = originalBox.querySelector("video");
     sourceVideo.src = currentUrl;
@@ -207,6 +209,7 @@ export function bindUpload() {
     try {
       const result = await analyzeYouTubeVideo(url, document.getElementById("clip-style").value, await user.getIdToken());
       moments = result.moments || [];
+      saveLocalItem("clipforge-session", { kind:"session", moments, summary:result.summary || "", sourceName:currentFile?.name || null }).catch(error => Logger.warn("Could not save clip session", error));
       document.getElementById("video-summary").textContent = result.summary || "YouTube analysis complete.";
       document.getElementById("clip-count").textContent = `${moments.length} MOMENTS`;
       renderMoments();
@@ -236,6 +239,7 @@ export function bindUpload() {
         addConsoleLine("INFO", [status]);
       });
       moments = result.moments || [];
+      saveLocalItem("clipforge-session", { kind:"session", moments, summary:result.summary || "", sourceName:currentFile?.name || null }).catch(error => Logger.warn("Could not save clip session", error));
       addConsoleLine("SUCCESS", ["Gemini analysis completed.", { count:moments.length, model:result.model || "Gemini" }]);
       document.getElementById("video-summary").textContent = result.summary || "Analysis complete.";
       document.getElementById("clip-count").textContent = `${moments.length} MOMENTS`;
@@ -317,6 +321,8 @@ export function bindUpload() {
       const blob = await createTrimPreview(currentFile, start, end, status => { trimStatus.textContent = status; });
       if (trimPreviewUrl) URL.revokeObjectURL(trimPreviewUrl);
       trimPreviewUrl = URL.createObjectURL(blob);
+      await saveLocalItem("trimmed-clip", { kind:"trimmed-clip", blob, name:`clipforge-${Math.round(start)}-${Math.round(end)}.mp4`, type:"video/mp4", start, end });
+      addConsoleLine("SUCCESS", ["Trimmed clip saved in this browser for 24 hours."]);
       document.getElementById("trim-preview-box").innerHTML = '<video id="trimmed-video" controls playsinline></video>';
       const preview = document.getElementById("trimmed-video");
       preview.src = trimPreviewUrl;
@@ -331,6 +337,40 @@ export function bindUpload() {
       trimButton.disabled = false; rangeButton.disabled = false;
     }
   };
+
+  // Restore the last local editing session after refresh or page navigation.
+  (async () => {
+    try {
+      const savedSource = await getLocalItem("source-video");
+      if (savedSource?.blob) {
+        const restoredFile = savedSource.blob instanceof File
+          ? savedSource.blob
+          : new File([savedSource.blob], savedSource.name || "restored-video.mp4", { type:savedSource.type || "video/mp4" });
+        loadFile(restoredFile);
+        addConsoleLine("SUCCESS", ["Restored source video from local browser storage."]);
+      }
+      const savedSession = await getLocalItem("clipforge-session");
+      if (savedSession?.moments) {
+        moments = savedSession.moments;
+        document.getElementById("video-summary").textContent = savedSession.summary || "Restored previous analysis.";
+        document.getElementById("clip-count").textContent = `${moments.length} MOMENTS`;
+        renderMoments();
+        addConsoleLine("SUCCESS", [`Restored ${moments.length} detected moments.`]);
+      }
+      const savedClip = await getLocalItem("trimmed-clip");
+      if (savedClip?.blob) {
+        if (trimPreviewUrl) URL.revokeObjectURL(trimPreviewUrl);
+        trimPreviewUrl = URL.createObjectURL(savedClip.blob);
+        document.getElementById("trim-preview-box").innerHTML = '<video id="trimmed-video" controls playsinline></video>';
+        document.getElementById("trimmed-video").src = trimPreviewUrl;
+        trimStatus.textContent = `Restored trimmed clip · ${(savedClip.blob.size/1024/1024).toFixed(1)} MB · kept locally for up to 24 hours`;
+        addConsoleLine("SUCCESS", ["Restored previous trimmed MP4."]);
+      }
+    } catch (error) {
+      addConsoleLine("WARN", ["Local restore failed:", error.message]);
+      Logger.warn("Local session restore failed", error);
+    }
+  })();
 }
 
 function formatTime(seconds) {
