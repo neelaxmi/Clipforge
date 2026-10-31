@@ -10,6 +10,7 @@ let currentUrl = null;
 let trimPreviewUrl = null;
 let moments = [];
 let remixClips = [];
+let remixMusicFile = null;
 
 export function renderUpload() {
   return `
@@ -62,7 +63,7 @@ export function renderUpload() {
 
   <div class="section-head"><h3>Phase 2 · Remix studio</h3><span class="tiny muted">MULTI-CLIP EDITOR</span></div>
   <section class="card">
-    <div class="trim-top"><div><h3>Build a short-form video</h3><p class="muted small-copy">Add detected moments to your timeline, choose a format and export one joined MP4.</p></div><span class="status-pill">Local export</span></div>
+    <div class="trim-top"><div><h3>Build a short-form video</h3><p class="muted small-copy">Add detected moments to your timeline, choose a format and export one joined MP4.</p></div><span class="status-pill">Local cinematic export</span></div>
     <div class="trim-fields">
       <label class="field">Output aspect ratio<select id="remix-ratio" class="select"><option value="9:16">9:16 · Reels / Shorts</option><option value="16:9">16:9 · YouTube</option><option value="1:1">1:1 · Square</option></select></label>
       <label class="field">Timeline clips<input id="remix-count" class="input" value="0 clips" readonly></label>
@@ -84,7 +85,7 @@ export function renderUpload() {
     <div class="tool-row"><button class="btn primary" id="export-remix" disabled>✦ Export joined MP4</button><button class="btn" id="clear-remix" style="background:#252d40">Clear timeline</button></div>
     <div class="analysis-status" id="remix-status" aria-live="polite">Phase 2 editor ready. Your timeline is saved locally for 24 hours.</div>
     <div id="remix-download" style="margin-top:12px"></div>
-    <p class="tiny muted">Export runs on this device. It crops to the selected ratio and re-encodes at high quality. Large videos may take time and need free phone memory.</p>
+    <p class="tiny muted">Local export supports cinematic colour grades, fade transitions, title overlays, speed changes and optional music mix. Cloud rendering will be optional once its API key is added.</p>
   </section>
 
   <div class="section-head"><h3>Clip trim & preview</h3><span class="tiny muted">PHASE 1 · LOCAL PROCESSING</span></div>
@@ -106,7 +107,7 @@ export function bindUpload() {
   // Release any previous page's temporary preview URLs.
   if (currentUrl) URL.revokeObjectURL(currentUrl);
   if (trimPreviewUrl) URL.revokeObjectURL(trimPreviewUrl);
-  currentFile = null; currentUrl = null; trimPreviewUrl = null; moments = []; remixClips = [];
+  currentFile = null; currentUrl = null; trimPreviewUrl = null; moments = []; remixClips = []; remixMusicFile = null;
 
   const input = document.getElementById("video-file");
   const zone = document.getElementById("drop-zone");
@@ -389,14 +390,35 @@ export function bindUpload() {
     document.getElementById("remix-count").value = `${remixClips.length} clips`;
     exportRemixButton.disabled = !currentFile || remixClips.length === 0;
     remixTimeline.innerHTML = remixClips.length ? remixClips.map((clip,index) => `
-      <article class="clip-row"><div class="clip-thumb">${index+1}</div><div class="clip-details"><b>${escapeHtml(clip.title)}</b><small>${formatTime(clip.startSeconds)} — ${formatTime(clip.endSeconds)}</small></div><button class="ghost-btn" data-remove-remix="${index}">Remove</button></article>`).join("") : '<p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p>';
+      <article class="clip-row"><div class="clip-thumb">${index+1}</div><div class="clip-details"><b>${escapeHtml(clip.title)}</b><small>${formatTime(clip.startSeconds)} — ${formatTime(clip.endSeconds)}</small></div><button class="ghost-btn" data-move-up="${index}" ${index===0?"disabled":""} aria-label="Move clip up">↑</button><button class="ghost-btn" data-move-down="${index}" ${index===remixClips.length-1?"disabled":""} aria-label="Move clip down">↓</button><button class="ghost-btn" data-remove-remix="${index}">Remove</button></article>`).join("") : '<p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p>';
   }
   remixTimeline.onclick = event => {
-    const button = event.target.closest("[data-remove-remix]");
-    if (!button) return;
-    remixClips.splice(Number(button.dataset.removeRemix),1);
+    const up = event.target.closest("[data-move-up]");
+    const down = event.target.closest("[data-move-down]");
+    const remove = event.target.closest("[data-remove-remix]");
+    if (up || down) {
+      const index = Number((up || down).dataset[up ? "moveUp" : "moveDown"]);
+      const next = up ? index - 1 : index + 1;
+      if (next >= 0 && next < remixClips.length) {
+        [remixClips[index],remixClips[next]] = [remixClips[next],remixClips[index]];
+        saveLocalItem("remix-timeline", { kind:"remix-timeline", clips:remixClips }).catch(()=>{});
+        renderRemixTimeline();
+      }
+      return;
+    }
+    if (!remove) return;
+    remixClips.splice(Number(remove.dataset.removeRemix),1);
     saveLocalItem("remix-timeline", { kind:"remix-timeline", clips:remixClips }).catch(()=>{});
     renderRemixTimeline();
+  };
+  document.getElementById("remix-music").onchange = async event => {
+    remixMusicFile = event.target.files?.[0] || null;
+    const label = document.getElementById("remix-music-status");
+    if (remixMusicFile) {
+      label.textContent = "Music selected: " + remixMusicFile.name;
+      try { await saveLocalItem("remix-music", { kind:"remix-music", blob:remixMusicFile, name:remixMusicFile.name, type:remixMusicFile.type }); }
+      catch(error) { addConsoleLine("WARN",["Music file could not be saved for refresh restore:",error.message]); }
+    } else label.textContent = "No background music selected."; 
   };
   document.getElementById("clear-remix").onclick = () => {
     remixClips = [];
@@ -409,7 +431,15 @@ export function bindUpload() {
     exportRemixButton.disabled = true;
     remixStatus.textContent = "Starting Phase 2 export…";
     try {
-      const blob = await createRemixExport(currentFile, remixClips, document.getElementById("remix-ratio").value, status => { remixStatus.textContent = status; });
+      const blob = await createRemixExport(currentFile, remixClips, document.getElementById("remix-ratio").value, status => { remixStatus.textContent = status; addConsoleLine("INFO",[status]); }, {
+        effect:document.getElementById("remix-effect").value,
+        speed:Number(document.getElementById("remix-speed").value),
+        quality:document.getElementById("remix-quality").value,
+        overlayText:document.getElementById("remix-overlay-text").value,
+        musicFile:remixMusicFile,
+        musicVolume:Number(document.getElementById("remix-music-volume").value),
+        originalVolume:Number(document.getElementById("remix-original-volume").value)
+      });
       await saveLocalItem("remix-export", { kind:"remix-export", blob, name:"clipforge-remix.mp4", type:"video/mp4" });
       const url = URL.createObjectURL(blob);
       document.getElementById("remix-download").innerHTML = '<a class="btn primary" id="download-remix" download="clipforge-remix.mp4" href="' + url + '">↓ Download final MP4</a>';
@@ -472,6 +502,11 @@ export function bindUpload() {
           : new File([savedSource.blob], savedSource.name || "restored-video.mp4", { type:savedSource.type || "video/mp4" });
         loadFile(restoredFile);
         addConsoleLine("SUCCESS", ["Restored source video from local browser storage."]);
+      }
+      const savedMusic = await getLocalItem("remix-music");
+      if (savedMusic?.blob) {
+        remixMusicFile = savedMusic.blob instanceof File ? savedMusic.blob : new File([savedMusic.blob],savedMusic.name || "background-audio.mp3",{type:savedMusic.type || "audio/mpeg"});
+        document.getElementById("remix-music-status").textContent = "Restored music: " + remixMusicFile.name;
       }
       const savedTimeline = await getLocalItem("remix-timeline");
       if (savedTimeline?.clips) { remixClips = savedTimeline.clips; renderRemixTimeline(); }
