@@ -50,3 +50,47 @@ export async function createTrimPreview(file, startSeconds, endSeconds, onStatus
     try { await ffmpeg.deleteFile(outputName); } catch {}
   }
 }
+
+export async function createRemixExport(file, clips, aspectRatio = "9:16", onStatus = () => {}) {
+  if (file.size > 250 * 1024 * 1024) throw new Error("For Android memory safety, remix export currently supports source videos up to 250 MB.");
+  if (!Array.isArray(clips) || clips.length < 1) throw new Error("Add at least one clip to your remix timeline.");
+  const dimensions = { "9:16":[1080,1920], "16:9":[1920,1080], "1:1":[1080,1080] };
+  const [width,height] = dimensions[aspectRatio] || dimensions["9:16"];
+  const ffmpeg = await loadTrimEngine(onStatus);
+  const ext = file.name.split(".").pop().toLowerCase().replace(/[^a-z0-9]/g,"") || "mp4";
+  const inputName = `remix-source.${ext}`;
+  const listName = "remix-list.txt";
+  const outputName = "clipforge-remix.mp4";
+  const segmentNames = [];
+  try {
+    onStatus("Preparing source video for remix…");
+    await ffmpeg.writeFile(inputName, await fetchFile(file));
+    for (let i=0; i<clips.length; i++) {
+      const clip = clips[i];
+      if (!(clip.endSeconds > clip.startSeconds)) continue;
+      const name = `remix-part-${i}.mp4`;
+      segmentNames.push(name);
+      onStatus(`Rendering clip ${i+1} of ${clips.length}…`);
+      await ffmpeg.exec([
+        "-ss", String(clip.startSeconds), "-i", inputName, "-t", String(clip.endSeconds-clip.startSeconds),
+        "-map","0:v:0","-map","0:a?","-vf",`scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1`,
+        "-c:v","libx264","-preset","veryfast","-crf","20","-pix_fmt","yuv420p",
+        "-c:a","aac","-b:a","192k","-movflags","+faststart",name
+      ]);
+    }
+    if (!segmentNames.length) throw new Error("No valid clips found in the remix timeline.");
+    const list = segmentNames.map(name => `file '${name}'`).join("\n");
+    await ffmpeg.writeFile(listName, new TextEncoder().encode(list));
+    onStatus("Joining clips into the final MP4…");
+    await ffmpeg.exec(["-f","concat","-safe","0","-i",listName,"-c","copy","-movflags","+faststart",outputName]);
+    const data = await ffmpeg.readFile(outputName);
+    const blob = new Blob([data.buffer], { type:"video/mp4" });
+    if (!blob.size) throw new Error("The remix export is empty. Please try again.");
+    onStatus("Your remix MP4 is ready.");
+    return blob;
+  } finally {
+    for (const name of [inputName,listName,outputName,...segmentNames]) {
+      try { await ffmpeg.deleteFile(name); } catch {}
+    }
+  }
+}
