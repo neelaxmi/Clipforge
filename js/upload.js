@@ -1,6 +1,6 @@
 import Logger from "./logger.js";
 import { auth } from "./firebase.js";
-import { analyzeLocalVideo } from "./gemini-video.js";
+import { analyzeLocalVideo, analyzeYouTubeVideo } from "./gemini-video.js";
 import { createTrimPreview } from "./video-trimmer.js";
 
 let currentFile = null;
@@ -25,7 +25,7 @@ export function renderUpload() {
     </section>
     <section class="card">
       <div class="section-head"><h3>AI moment detection</h3><span class="tiny muted">GEMINI VIDEO AI</span></div>
-      <label class="field">What kind of moments should Gemini find?
+      <label class="field">Public YouTube link (optional)<input class="input" id="youtube-url" type="url" placeholder="https://youtu.be/..."></label>\n      <button class="btn" id="analyze-youtube" style="background:#252d40;width:100%;margin-bottom:14px">Analyse public YouTube link ↗</button>\n      <label class="field">What kind of moments should Gemini find?
         <select class="select" id="clip-style">
           <option>Most engaging moments</option><option>Educational highlights</option>
           <option>Funny / surprising moments</option><option>Strong opinions / hooks</option>
@@ -122,7 +122,7 @@ export function bindUpload() {
   startInput.oninput = updateTrimDuration;
   endInput.oninput = updateTrimDuration;
 
-  analyzeButton.onclick = async () => {
+  document.getElementById("analyze-youtube").onclick = async () => {\n    const url = document.getElementById("youtube-url").value.trim();\n    if (!url) return window.Clipforge.toast("Paste a public YouTube link first.", "error");\n    const user = auth?.currentUser;\n    if (!user) return window.Clipforge.toast("Your login session expired. Sign in again.", "error");\n    const button = document.getElementById("analyze-youtube");\n    button.disabled = true;\n    document.getElementById("analysis-status").textContent = "Gemini is analysing the public YouTube video…";\n    try {\n      const result = await analyzeYouTubeVideo(url, document.getElementById("clip-style").value, await user.getIdToken());\n      moments = result.moments || [];\n      document.getElementById("video-summary").textContent = result.summary || "YouTube analysis complete.";\n      document.getElementById("clip-count").textContent = `${moments.length} MOMENTS`;\n      renderMoments();\n      document.getElementById("analysis-status").textContent = `YouTube analysis complete · ${result.model || "Gemini"}`;\n      if (!currentFile) trimStatus.textContent = "Upload the original video file to trim and preview these YouTube timestamps.";\n      window.Clipforge.toast(`${moments.length} YouTube moments found.`, "success");\n      Logger.success("YouTube analysis complete", { count: moments.length, model: result.model });\n    } catch (error) {\n      Logger.error("YouTube analysis failed", error);\n      document.getElementById("analysis-status").textContent = error.message || "YouTube analysis failed.";\n      window.Clipforge.toast(error.message || "YouTube analysis failed.", "error");\n    } finally { button.disabled = false; }\n  };\n\n  analyzeButton.onclick = async () => {
     if (!currentFile || !sourceVideo) return window.Clipforge.toast("Choose a video first.", "error");
     const user = auth?.currentUser;
     if (!user) return window.Clipforge.toast("Your login session expired. Sign in again.", "error");
