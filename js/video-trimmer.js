@@ -71,7 +71,8 @@ export async function createRemixExport(file, clips, aspectRatio = "9:16", onSta
     warm: ",colorbalance=rs=0.08:gs=0.02:bs=-0.06,eq=saturation=1.18:contrast=1.04",
     mono: ",hue=s=0,eq=contrast=1.12:brightness=0.01",
     vivid: ",eq=contrast=1.16:saturation=1.35:gamma=1.02",
-    noir: ",hue=s=0,eq=contrast=1.35:brightness=-0.04,vignette=PI/4"
+    noir: ",hue=s=0,eq=contrast=1.35:brightness=-0.04,vignette=PI/4",
+    glitch: ",noise=alls=10:allf=t+u,eq=contrast=1.22:saturation=1.3"
   };
   const effect = effects[options.effect] ?? effects.cinematic;
   const safeText = String(options.overlayText || "").trim().slice(0, 100);
@@ -134,7 +135,7 @@ export async function createRemixExport(file, clips, aspectRatio = "9:16", onSta
         await ffmpeg.exec([
           "-ss",String(clip.startSeconds),"-i",inputName,"-loop","1","-i",overlay,
           "-t",String(sourceDuration),"-filter_complex",
-          `[0:v]${videoFilters}[base];[1:v]format=rgba[title];[base][title]overlay=0:0:shortest=1[v]`,
+          `[0:v]${videoFilters}[base];[1:v]format=rgba,fade=t=in:st=0:d=0.45:alpha=1[title];[base][title]overlay=0:0:shortest=1[v]`,
           "-map","[v]","-map","0:a?","-c:v","libx264","-preset","veryfast","-crf",quality,
           "-pix_fmt","yuv420p","-c:a","aac","-b:a","192k","-movflags","+faststart",name
         ]);
