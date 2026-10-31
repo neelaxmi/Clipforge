@@ -33,11 +33,12 @@ export async function createTrimPreview(file, startSeconds, endSeconds, onStatus
   try {
     onStatus("Preparing source video in browser memory…");
     await ffmpeg.writeFile(inputName, await fetchFile(file));
-    onStatus("Trimming and encoding a preview on this device…");
+    onStatus("Creating a high-quality trimmed MP4 on this device…");
     await ffmpeg.exec([
       "-ss", String(startSeconds), "-i", inputName, "-t", String(endSeconds - startSeconds),
-      "-map", "0:v:0", "-map", "0:a?", "-c:v", "libx264", "-preset", "ultrafast",
-      "-crf", "29", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", outputName
+      "-map", "0:v:0", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast",
+      "-crf", "18", "-pix_fmt", "yuv420p", "-profile:v", "high",
+      "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", outputName
     ]);
     const data = await ffmpeg.readFile(outputName);
     const blob = new Blob([data.buffer], { type: "video/mp4" });
