@@ -30,7 +30,7 @@ function makeTimeline(body, source) {
     cinematic:[{type:"color",temperature:5200,contrast:1.18,saturation:1.12,brightness:0.025},{type:"vignette"}],
     warm:[{type:"color",temperature:4800,contrast:1.08,saturation:1.15}],
     vivid:[{type:"look",name:"boost"},{type:"glow"}],
-    mono:[{type:"look",name:"greyscale"},{type:"contrast"}],
+    mono:[{type:"look",name:"greyscale"},{type:"color",contrast:1.12}],
     noir:[{type:"look",name:"oldFilm"},{type:"vignette"}],
     glitch:[{type:"glitch"},{type:"rgbShift"}],
     clean:[]
