@@ -5,7 +5,7 @@ const firebaseKeys = createRemoteJWKSet(
 );
 
 export async function requireFirebaseUser(req) {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const projectId = process.env.FIREBASE_PROJECT_ID || "dsfss-67702";
   if (!projectId) throw new Error("Server setup missing FIREBASE_PROJECT_ID.");
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
