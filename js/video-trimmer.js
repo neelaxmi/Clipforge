@@ -125,8 +125,7 @@ export async function createRemixExport(file, clips, aspectRatio = "9:16", onSta
         `crop=${width}:${height}`, "setsar=1",
         effect.replace(/^,/,""),
         `setpts=PTS/${speed}`,
-        "fade=t=in:st=0:d=0.22",
-        `fade=t=out:st=${Math.max(0,duration-0.24)}:d=0.24`
+        ...(useFade ? ["fade=t=in:st=0:d=0.22", `fade=t=out:st=${Math.max(0,duration-0.24)}:d=0.24`] : [])
       ].filter(Boolean).join(",");
       const overlayText = safeText || String(clip.title || "").trim().slice(0,100);
       if (overlayText) {
