@@ -196,6 +196,7 @@ export function bindUpload() {
       startInput.value = "0"; endInput.value = Math.min(duration, 30).toFixed(1);
       updateTrimDuration();
       analyzeButton.disabled = false; trimButton.disabled = false; rangeButton.disabled = false;
+      if (typeof renderRemixTimeline === "function") renderRemixTimeline();
     };
     meta.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB · Reading duration…`;
     document.getElementById("clip-list").innerHTML = '<p class="muted small-copy">Run Gemini analysis to find clip moments.</p>';
