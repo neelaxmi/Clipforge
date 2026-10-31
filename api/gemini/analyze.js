@@ -69,32 +69,55 @@ Use precise timestamps. Return an empty moments array if no useful clip exists.`
     const model = !configuredModel || /^(GEMINI_[A-Z0-9_]+|YOUR[_ -].*|CHANGE[_ -].*|MODEL[_ -]?NAME)$/i.test(configuredModel)
       ? "gemini-3.8-flash"
       : configuredModel;
-    const generationResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: "POST",
-      headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ file_data: { mime_type: mimeType, file_uri: file.uri } }, { text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
-      }),
-      signal: AbortSignal.timeout(180000)
+    const generationUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+    const generationBody = JSON.stringify({
+      contents: [{ role: "user", parts: [{ file_data: { mime_type: mimeType, file_uri: file.uri } }, { text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
     });
-    if (!generationResponse.ok) {
+
+    // Retry temporary Google capacity/rate-limit errors with exponential backoff.
+    let generationResponse = null;
+    let lastDiagnostic = null;
+    const maxGenerationAttempts = 4;
+    for (let attempt = 1; attempt <= maxGenerationAttempts; attempt++) {
+      generationResponse = await fetch(generationUrl, {
+        method: "POST",
+        headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
+        body: generationBody,
+        signal: AbortSignal.timeout(180000)
+      });
+
+      if (generationResponse.ok) break;
+
       const detail = await generationResponse.text();
-      // Preserve Google's actual error for debugging, but never expose request headers/API keys.
       let geminiError = {};
       try { geminiError = JSON.parse(detail); } catch {}
-      const googleMessage = String(geminiError.error?.message || detail || "No error details returned").slice(0, 1800);
-      const diagnostic = {
+      lastDiagnostic = {
         stage: "gemini_generate_content",
         httpStatus: generationResponse.status,
         model,
+        attempt,
+        maxAttempts: maxGenerationAttempts,
         googleCode: geminiError.error?.status || null,
-        googleMessage
+        googleMessage: String(geminiError.error?.message || detail || "No error details returned").slice(0, 1800)
       };
-      console.error("[Clipforge][Gemini analysis diagnostic]", diagnostic);
+
+      const retryable = [408, 429, 500, 502, 503, 504].includes(generationResponse.status);
+      if (!retryable || attempt === maxGenerationAttempts) break;
+
+      const backoffMs = Math.min(1000 * (2 ** (attempt - 1)), 8000) + Math.floor(Math.random() * 500);
+      console.warn("[Clipforge] Gemini temporarily unavailable; retrying", {
+        attempt, nextAttempt: attempt + 1, maxAttempts: maxGenerationAttempts,
+        httpStatus: generationResponse.status, waitMs: backoffMs
+      });
+      await wait(backoffMs);
+    }
+
+    if (!generationResponse.ok) {
+      console.error("[Clipforge][Gemini analysis diagnostic]", lastDiagnostic);
       return sendJson(res, 502, {
-        error: "Gemini analysis request failed.",
-        diagnostic
+        error: "Gemini analysis request failed after retrying temporary service errors.",
+        diagnostic: lastDiagnostic
       });
     }
     const generated = await generationResponse.json();
