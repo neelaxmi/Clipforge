@@ -36,6 +36,7 @@ export function renderUpload() {
       </label>
       <button class="btn primary full" id="analyze-video" disabled>✧ Analyse video <span>→</span></button>
       <div class="analysis-status" id="analysis-status" aria-live="polite">Choose a video to begin.</div>
+      <pre id="analysis-debug" class="tiny" style="display:none;white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;margin-top:12px;padding:12px;border:1px solid #a94442;border-radius:10px;background:#211719;color:#ffd7d7;font:12px/1.5 monospace" aria-live="polite"></pre>
       <div class="notice" style="margin-top:15px">Your video is uploaded directly to Google's Gemini File API using a temporary upload session. Gemini API keys stay on the Vercel server. Only analyse videos you own or have permission to use.</div>
     </section>
   </div>
@@ -155,6 +156,9 @@ export function bindUpload() {
     if (!user) return window.Clipforge.toast("Your login session expired. Sign in again.", "error");
     analyzeButton.disabled = true;
     document.getElementById("analysis-status").textContent = "Starting secure upload…";
+    const debugBox = document.getElementById("analysis-debug");
+    debugBox.style.display = "none";
+    debugBox.textContent = "";
     document.getElementById("clip-list").innerHTML = '<p class="muted small-copy">Gemini is analysing your video. Longer videos may take a few minutes.</p>';
     try {
       const token = await user.getIdToken();
@@ -170,9 +174,32 @@ export function bindUpload() {
       else window.Clipforge.toast(`${moments.length} clip moments found.`, "success");
       Logger.success("Gemini video analysis complete", { count: moments.length, model: result.model });
     } catch (error) {
-      Logger.error("Gemini analysis failed", error);
-      document.getElementById("analysis-status").textContent = error.message || "Analysis failed.";
-      document.getElementById("clip-list").innerHTML = '<p class="muted small-copy">Analysis failed. Check your Firebase and Gemini server environment variables, then retry.</p>';
+      const diagnostic = error.diagnostic || {
+        stage: "browser_or_network",
+        name: error.name || "Error",
+        message: error.message || "Unknown error",
+        status: error.status || null
+      };
+      console.error("[Clipforge] FULL VIDEO ANALYSIS FAILURE", {
+        message: error.message,
+        status: error.status || null,
+        diagnostic,
+        timestamp: new Date().toISOString()
+      });
+      Logger.error("Gemini analysis failed", { message: error.message, status: error.status, diagnostic });
+      document.getElementById("analysis-status").textContent = "Analysis failed — diagnostic details are shown below.";
+      const debugBox = document.getElementById("analysis-debug");
+      debugBox.style.display = "block";
+      debugBox.textContent = [
+        "CLIPFORGE GEMINI ERROR",
+        "Time: " + new Date().toLocaleString(),
+        "Message: " + (error.message || "Unknown error"),
+        "HTTP status: " + (error.status || diagnostic.httpStatus || "Not available"),
+        "",
+        "DIAGNOSTIC:",
+        JSON.stringify(diagnostic, null, 2)
+      ].join("\n");
+      document.getElementById("clip-list").innerHTML = '<p class="muted small-copy">Analysis failed. The exact diagnostic is displayed above and logged in the browser console.</p>';
       window.Clipforge.toast(error.message || "Video analysis failed.", "error");
     } finally {
       analyzeButton.disabled = false;
