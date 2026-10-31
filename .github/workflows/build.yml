@@ -14,3 +14,6 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run build
+      - run: node --check api/storage/getpronto.js
+      - run: node --check api/render/rendobar.js
+      - run: node --check api/ai/director.js
