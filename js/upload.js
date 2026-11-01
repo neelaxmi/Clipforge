@@ -3,12 +3,16 @@ import { auth } from "./firebase.js";
 import { analyzeLocalVideo, analyzeYouTubeVideo } from "./gemini-video.js";
 import { createTrimPreview, createRemixExport } from "./video-trimmer.js";
 import { saveLocalItem, getLocalItem } from "./local-library.js";
+import { uploadVideoToGetPronto, uploadMediaToGetPronto } from "./getpronto-storage.js";
+import { checkRendobar, validateRendobar, submitRendobar, waitForRendobarJob } from "./rendobar-render.js";
+import { createRadoxEditPlan } from "./radoxai-director.js";
 
 let currentFile = null;
 let currentUrl = null;
 let trimPreviewUrl = null;
 let moments = [];
 let remixClips = [];
+let remixMusicFile = null;
 
 export function renderUpload() {
   return `
@@ -24,6 +28,9 @@ export function renderUpload() {
       </div>
       <div class="video-box" id="video-preview"><span>Original video preview appears here</span></div>
       <div id="video-meta" class="tiny muted" style="margin-top:10px">No video selected</div>
+      <button class="btn" id="cloud-source-upload" disabled style="margin-top:12px;background:#1d2940;width:100%">☁ Store source in GetPronto</button>
+      <div id="cloud-source-status" class="analysis-status" aria-live="polite">Optional cloud copy · Free plan: up to 100 MB per video.</div>
+      <p class="tiny muted">Privacy notice: GetPronto's returned file URL is publicly accessible to anyone who has the link. Upload only videos you are comfortable sharing by link.</p>
     </section>
     <section class="card">
       <div class="section-head"><h3>AI moment detection</h3><span class="tiny muted">GEMINI VIDEO AI</span></div>
@@ -58,16 +65,35 @@ export function renderUpload() {
 
   <div class="section-head"><h3>Phase 2 · Remix studio</h3><span class="tiny muted">MULTI-CLIP EDITOR</span></div>
   <section class="card">
-    <div class="trim-top"><div><h3>Build a short-form video</h3><p class="muted small-copy">Add detected moments to your timeline, choose a format and export one joined MP4.</p></div><span class="status-pill">Local export</span></div>
+    <div class="trim-top"><div><h3>Build a short-form video</h3><p class="muted small-copy">Add detected moments to your timeline, choose a format and export one joined MP4.</p></div><span class="status-pill">Local cinematic export</span></div>
     <div class="trim-fields">
       <label class="field">Output aspect ratio<select id="remix-ratio" class="select"><option value="9:16">9:16 · Reels / Shorts</option><option value="16:9">16:9 · YouTube</option><option value="1:1">1:1 · Square</option></select></label>
       <label class="field">Timeline clips<input id="remix-count" class="input" value="0 clips" readonly></label>
     </div>
+    <div class="section-head"><h3>Creative controls</h3><span class="tiny muted">LOCAL EFFECTS ENGINE</span></div>
+    <div class="trim-fields remix-controls">
+      <label class="field">Visual grade<select id="remix-effect" class="select"><option value="cinematic">Cinematic · contrast + vignette</option><option value="clean">Clean original</option><option value="warm">Warm film</option><option value="vivid">Vivid pop</option><option value="mono">Black & white</option><option value="noir">Noir drama</option></select></label>
+      <label class="field">Playback speed<select id="remix-speed" class="select"><option value="1">Normal · 1x</option><option value="0.75">Slow · 0.75x</option><option value="0.5">Slow motion · 0.5x</option><option value="1.25">Fast · 1.25x</option><option value="1.5">Fast · 1.5x</option><option value="2">2x</option></select></label>
+      <label class="field">Scene transition<select id="remix-transition" class="select"><option value="crossfade">Crossfade</option><option value="fade">Fade to black</option><option value="slide">Slide</option><option value="push">Push</option><option value="zoom">Zoom</option><option value="wipe">Wipe</option><option value="none">Hard cut</option></select></label>
+      
+      <label class="field">Export quality<select id="remix-quality" class="select"><option value="18">Very high · CRF 18</option><option value="20" selected>High · CRF 20</option><option value="23">Smaller file · CRF 23</option></select></label>
+    </div>
+    <label class="field">Cinematic title / overlay<input id="remix-overlay-text" class="input" maxlength="100" placeholder="e.g. THIS CHANGES EVERYTHING"></label>
+    <label class="field">Subtitles · one line per timeline clip<textarea id="remix-subtitles" class="textarea" rows="3" placeholder="First clip subtitle&#10;Second clip subtitle&#10;Third clip subtitle"></textarea></label>
+    <div class="trim-fields">
+      <label class="field">Background music<input id="remix-music" class="input" type="file" accept="audio/*"></label>
+      <label class="field">Music volume<input id="remix-music-volume" class="input" type="range" min="0" max="1" step="0.05" value="0.22"></label>
+      <label class="field">Original audio<input id="remix-original-volume" class="input" type="range" min="0" max="1.5" step="0.05" value="0.8"></label>
+    </div>
+    <div id="remix-music-status" class="tiny muted">Optional music track · MP3, WAV, M4A and other browser-supported audio.</div>
     <div id="remix-timeline" class="clip-list"><p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p></div>
     <div class="tool-row"><button class="btn primary" id="export-remix" disabled>✦ Export joined MP4</button><button class="btn" id="clear-remix" style="background:#252d40">Clear timeline</button></div>
+    <div class="tool-row"><button class="btn" id="cloud-render-remix" disabled style="background:linear-gradient(110deg,#225c79,#5140a1)">☁ Render in cloud (background)</button><button class="btn" id="check-cloud-render" style="background:#252d40">Check cloud job</button></div>
+    <div class="tool-row"><button class="btn" id="radox-director" disabled style="background:linear-gradient(110deg,#6541a5,#b44f86)">✧ AI Director · RadoxAI</button></div><div class="analysis-status" id="radox-director-status" aria-live="polite">AI Director creates a hook-first order, title, visual grade and transition. Add RADOXAI_API_KEY + RADOXAI_MODEL later.</div>
+    <div class="analysis-status" id="cloud-render-status" aria-live="polite">Cloud rendering needs GetPronto + Rendobar API keys. Local rendering works without keys.</div><div id="cloud-render-download" style="margin-top:12px"></div>
     <div class="analysis-status" id="remix-status" aria-live="polite">Phase 2 editor ready. Your timeline is saved locally for 24 hours.</div>
     <div id="remix-download" style="margin-top:12px"></div>
-    <p class="tiny muted">Export runs on this device. It crops to the selected ratio and re-encodes at high quality. Large videos may take time and need free phone memory.</p>
+    <p class="tiny muted">Local export supports cinematic colour grades, fade transitions, title overlays, speed changes and optional music mix. Cloud rendering will be optional once its API key is added.</p>
   </section>
 
   <div class="section-head"><h3>Clip trim & preview</h3><span class="tiny muted">PHASE 1 · LOCAL PROCESSING</span></div>
@@ -89,13 +115,15 @@ export function bindUpload() {
   // Release any previous page's temporary preview URLs.
   if (currentUrl) URL.revokeObjectURL(currentUrl);
   if (trimPreviewUrl) URL.revokeObjectURL(trimPreviewUrl);
-  currentFile = null; currentUrl = null; trimPreviewUrl = null; moments = []; remixClips = [];
+  currentFile = null; currentUrl = null; trimPreviewUrl = null; moments = []; remixClips = []; remixMusicFile = null;
 
   const input = document.getElementById("video-file");
   const zone = document.getElementById("drop-zone");
   const choose = document.getElementById("choose-video");
   const originalBox = document.getElementById("video-preview");
   const meta = document.getElementById("video-meta");
+  const cloudUploadButton = document.getElementById("cloud-source-upload");
+  const cloudStatus = document.getElementById("cloud-source-status");
   const analyzeButton = document.getElementById("analyze-video");
   const startInput = document.getElementById("trim-start");
   const endInput = document.getElementById("trim-end");
@@ -105,6 +133,11 @@ export function bindUpload() {
   const remixStatus = document.getElementById("remix-status");
   const remixTimeline = document.getElementById("remix-timeline");
   const exportRemixButton = document.getElementById("export-remix");
+  const cloudRenderButton = document.getElementById("cloud-render-remix");
+  const cloudRenderStatus = document.getElementById("cloud-render-status");
+  const cloudDownload = document.getElementById("cloud-render-download");
+  const directorButton = document.getElementById("radox-director");
+  const directorStatus = document.getElementById("radox-director-status");
   const trimStatus = document.getElementById("trim-status");
   let sourceVideo = null;
   let playbackStopper = null;
@@ -174,6 +207,38 @@ export function bindUpload() {
   };
 
   choose.onclick = () => input.click();
+
+  cloudUploadButton.onclick = async () => {
+    if (!currentFile) return window.Clipforge.toast("Choose a source video first.", "error");
+    cloudUploadButton.disabled = true;
+    try {
+      const stored = await uploadVideoToGetPronto(currentFile, status => {
+        cloudStatus.textContent = status;
+        addConsoleLine("INFO", ["GetPronto:", status]);
+      });
+      await saveLocalItem("getpronto-source-video", {
+        kind:"getpronto-source-video", fileId:stored.id, name:stored.name,
+        url:stored.url, rawUrl:stored.rawUrl, size:stored.size, type:stored.type
+      });
+      cloudStatus.replaceChildren();
+      const label = document.createElement("span");
+      label.textContent = "Stored successfully · ";
+      const link = document.createElement("a");
+      link.href = stored.url; link.target = "_blank"; link.rel = "noopener noreferrer";
+      link.textContent = "Open cloud video";
+      cloudStatus.append(label, link);
+      addConsoleLine("SUCCESS", ["Source video stored in GetPronto.", { id:stored.id, size:stored.size }]);
+      Logger.success("GetPronto source upload complete", { id:stored.id, size:stored.size });
+      window.Clipforge.toast("Source video stored in GetPronto.", "success");
+    } catch (error) {
+      cloudStatus.textContent = error.message || "GetPronto upload failed.";
+      addConsoleLine("ERROR", ["GetPronto upload failed:", error.message]);
+      Logger.error("GetPronto source upload failed", error);
+      window.Clipforge.toast(error.message || "GetPronto upload failed.", "error");
+    } finally {
+      cloudUploadButton.disabled = !currentFile || currentFile.size > 100 * 1024 * 1024;
+    }
+  };
   input.onchange = () => loadFile(input.files?.[0]);
   zone.ondragover = event => { event.preventDefault(); zone.classList.add("drag"); };
   zone.ondragleave = () => zone.classList.remove("drag");
@@ -199,6 +264,13 @@ export function bindUpload() {
       if (typeof renderRemixTimeline === "function") renderRemixTimeline();
     };
     meta.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB · Reading duration…`;
+    cloudUploadButton.disabled = file.size > 100 * 1024 * 1024;
+    cloudUploadButton.textContent = file.size > 100 * 1024 * 1024
+      ? "GetPronto limit: 100 MB per video"
+      : "☁ Store source in GetPronto";
+    cloudStatus.textContent = file.size > 100 * 1024 * 1024
+      ? "This source is too large for GetPronto Free. Local editing and Gemini analysis remain available."
+      : "Optional cloud copy · Free plan: up to 100 MB per video.";
     document.getElementById("clip-list").innerHTML = '<p class="muted small-copy">Run Gemini analysis to find clip moments.</p>';
     document.getElementById("clip-count").textContent = "0 MOMENTS";
     document.getElementById("video-summary").textContent = "Ready for Gemini analysis.";
@@ -308,7 +380,7 @@ export function bindUpload() {
     if (addButton) {
       const clip = moments[Number(addButton.dataset.addRemix)];
       if (!clip) return;
-      remixClips.push({ title:clip.title, startSeconds:Number(clip.startSeconds), endSeconds:Number(clip.endSeconds) });
+      remixClips.push({ title:clip.title, reason:clip.reason || clip.hook || "", startSeconds:Number(clip.startSeconds), endSeconds:Number(clip.endSeconds) });
       saveLocalItem("remix-timeline", { kind:"remix-timeline", clips:remixClips }).catch(error => Logger.warn("Remix timeline save failed", error));
       renderRemixTimeline();
       remixStatus.textContent = "Clip added. Timeline is saved locally for 24 hours.";
@@ -330,15 +402,142 @@ export function bindUpload() {
   function renderRemixTimeline() {
     document.getElementById("remix-count").value = `${remixClips.length} clips`;
     exportRemixButton.disabled = !currentFile || remixClips.length === 0;
+    cloudRenderButton.disabled = !currentFile || remixClips.length === 0;
+    directorButton.disabled = remixClips.length === 0;
     remixTimeline.innerHTML = remixClips.length ? remixClips.map((clip,index) => `
-      <article class="clip-row"><div class="clip-thumb">${index+1}</div><div class="clip-details"><b>${escapeHtml(clip.title)}</b><small>${formatTime(clip.startSeconds)} — ${formatTime(clip.endSeconds)}</small></div><button class="ghost-btn" data-remove-remix="${index}">Remove</button></article>`).join("") : '<p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p>';
+      <article class="clip-row"><div class="clip-thumb">${index+1}</div><div class="clip-details"><b>${escapeHtml(clip.title)}</b><small>${formatTime(clip.startSeconds)} — ${formatTime(clip.endSeconds)}</small></div><button class="ghost-btn" data-move-up="${index}" ${index===0?"disabled":""} aria-label="Move clip up">↑</button><button class="ghost-btn" data-move-down="${index}" ${index===remixClips.length-1?"disabled":""} aria-label="Move clip down">↓</button><button class="ghost-btn" data-remove-remix="${index}">Remove</button></article>`).join("") : '<p class="muted small-copy">No clips added yet. Use “Add to remix” on detected moments above.</p>';
   }
   remixTimeline.onclick = event => {
-    const button = event.target.closest("[data-remove-remix]");
-    if (!button) return;
-    remixClips.splice(Number(button.dataset.removeRemix),1);
+    const up = event.target.closest("[data-move-up]");
+    const down = event.target.closest("[data-move-down]");
+    const remove = event.target.closest("[data-remove-remix]");
+    if (up || down) {
+      const index = Number((up || down).dataset[up ? "moveUp" : "moveDown"]);
+      const next = up ? index - 1 : index + 1;
+      if (next >= 0 && next < remixClips.length) {
+        [remixClips[index],remixClips[next]] = [remixClips[next],remixClips[index]];
+        saveLocalItem("remix-timeline", { kind:"remix-timeline", clips:remixClips }).catch(()=>{});
+        renderRemixTimeline();
+      }
+      return;
+    }
+    if (!remove) return;
+    remixClips.splice(Number(remove.dataset.removeRemix),1);
     saveLocalItem("remix-timeline", { kind:"remix-timeline", clips:remixClips }).catch(()=>{});
     renderRemixTimeline();
+  };
+  directorButton.onclick = async () => {
+    if (!remixClips.length) return;
+    directorButton.disabled = true;
+    directorStatus.textContent = "RadoxAI is building a hook-first edit plan…";
+    try {
+      const result = await createRadoxEditPlan(remixClips, "cinematic Instagram Reels trailer");
+      const plan = result.plan;
+      const original = remixClips.map((clip,index)=>({...clip,_originalIndex:index}));
+      remixClips = plan.recommendedOrder.map(index=>original[index]).filter(Boolean).map(clip=>{const copy={...clip};delete copy._originalIndex;return copy;});
+      plan.clipTitles.forEach((title,index)=>{ if (title && original[index]) original[index].title=title; });
+      remixClips = plan.recommendedOrder.map(index=>original[index]).filter(Boolean).map(clip=>{const copy={...clip};delete copy._originalIndex;return copy;});
+      document.getElementById("remix-effect").value = plan.effect;
+      document.getElementById("remix-transition").value = plan.transition;
+      document.getElementById("remix-overlay-text").value = plan.overlayText;
+      saveLocalItem("remix-timeline",{kind:"remix-timeline",clips:remixClips}).catch(()=>{});
+      renderRemixTimeline();
+      directorStatus.textContent = plan.rationale + " · " + result.model;
+      addConsoleLine("SUCCESS",["RadoxAI edit plan applied.",plan]);
+      window.Clipforge.toast("AI Director applied its edit plan.","success");
+    } catch(error) {
+      directorStatus.textContent = error.message || "AI Director unavailable. Manual editing still works."; 
+      addConsoleLine("ERROR",["RadoxAI director failed:",error.message]);
+      window.Clipforge.toast(error.message || "AI Director failed.","error");
+    } finally { directorButton.disabled = remixClips.length===0; }
+  };
+  async function monitorCloudJob(jobId) {
+    cloudRenderStatus.textContent = "Checking cloud job " + jobId + "…";
+    try {
+      const job = await waitForRendobarJob(jobId, state => {
+        cloudRenderStatus.textContent = "Cloud render " + state.status + (state.progress != null ? " · " + Math.round(Number(state.progress)*100) + "%" : "") + ". It continues on the provider server if you close this page.";
+      });
+      await saveLocalItem("rendobar-job",{kind:"rendobar-job",jobId,status:job.status,outputUrl:job.outputUrl || null});
+      cloudRenderStatus.textContent = "Cloud render complete. Rendobar Free output retention is 7 days.";
+      cloudDownload.replaceChildren();
+      if (job.outputUrl) {
+        const link=document.createElement("a");
+        link.className="btn primary"; link.href=job.outputUrl; link.target="_blank";
+        link.rel="noopener noreferrer"; link.download="clipforge-cloud-remix.mp4";
+        link.textContent="↓ Open / download cloud MP4"; cloudDownload.append(link);
+      }
+      addConsoleLine("SUCCESS",["Rendobar cloud render completed.",job]);
+    } catch(error) {
+      cloudRenderStatus.textContent = error.message || "Cloud render status check failed.";
+      addConsoleLine("WARN",["Cloud job status:",error.message]);
+    }
+  }
+  cloudRenderButton.onclick = async () => {
+    if (!currentFile || !remixClips.length) return;
+    cloudRenderButton.disabled = true;
+    try {
+      cloudRenderStatus.textContent = "Checking Rendobar API configuration…";
+      await checkRendobar();
+      let storedSource = await getLocalItem("getpronto-source-video");
+      if (!storedSource?.url || storedSource.name !== currentFile.name || storedSource.size !== currentFile.size) {
+        cloudRenderStatus.textContent = "Uploading source to GetPronto for background rendering…";
+        const file = await uploadVideoToGetPronto(currentFile,status=>{cloudRenderStatus.textContent=status;});
+        storedSource = {url:file.url,name:currentFile.name,size:currentFile.size,id:file.id};
+        await saveLocalItem("getpronto-source-video",{kind:"getpronto-source-video",...storedSource});
+      }
+      let musicUrl = null;
+      if (remixMusicFile) {
+        let storedMusic = await getLocalItem("getpronto-remix-music");
+        if (!storedMusic?.url || storedMusic.name !== remixMusicFile.name || storedMusic.size !== remixMusicFile.size) {
+          cloudRenderStatus.textContent = "Uploading background music to GetPronto…";
+          const music = await uploadMediaToGetPronto(remixMusicFile,status=>{cloudRenderStatus.textContent=status;});
+          storedMusic = {url:music.url,name:remixMusicFile.name,size:remixMusicFile.size,id:music.id};
+          await saveLocalItem("getpronto-remix-music",{kind:"getpronto-remix-music",...storedMusic});
+        }
+        musicUrl = storedMusic.url;
+      }
+      const timeline = {
+        sourceUrl:storedSource.url, clips:remixClips,
+        aspectRatio:document.getElementById("remix-ratio").value,
+        effect:document.getElementById("remix-effect").value,
+        transition:document.getElementById("remix-transition").value,
+        transition:document.getElementById("remix-transition")?.value || "crossfade",
+        overlayText:document.getElementById("remix-overlay-text").value,
+        subtitles:document.getElementById("remix-subtitles").value,
+        originalVolume:Number(document.getElementById("remix-original-volume").value),
+        musicUrl, musicVolume:Number(document.getElementById("remix-music-volume").value),
+        speed:Number(document.getElementById("remix-speed").value)
+      };
+      cloudRenderStatus.textContent = "Validating edit (validation is free)…";
+      const validation = await validateRendobar(timeline);
+      addConsoleLine("INFO",["Rendobar validation result:",validation.validation]);
+      cloudRenderStatus.textContent = "Submitting cloud render using your free credits…";
+      const submitted = await submitRendobar(timeline);
+      await saveLocalItem("rendobar-job",{kind:"rendobar-job",jobId:submitted.jobId,status:"queued"});
+      addConsoleLine("SUCCESS",["Cloud render queued.",submitted]);
+      await monitorCloudJob(submitted.jobId);
+    } catch(error) {
+      cloudRenderStatus.textContent = error.message || "Cloud render could not start. Local rendering remains available.";
+      addConsoleLine("ERROR",["Cloud render setup failed:",error.message]);
+      Logger.error("Rendobar cloud render failed",error);
+      window.Clipforge.toast(error.message || "Cloud render failed.", "error");
+    } finally {
+      cloudRenderButton.disabled = !currentFile || remixClips.length === 0;
+    }
+  };
+  document.getElementById("check-cloud-render").onclick = async () => {
+    const saved = await getLocalItem("rendobar-job");
+    if (!saved?.jobId) { cloudRenderStatus.textContent = "No saved cloud job found yet."; return; }
+    await monitorCloudJob(saved.jobId);
+  };
+  document.getElementById("remix-music").onchange = async event => {
+    remixMusicFile = event.target.files?.[0] || null;
+    const label = document.getElementById("remix-music-status");
+    if (remixMusicFile) {
+      label.textContent = "Music selected: " + remixMusicFile.name;
+      try { await saveLocalItem("remix-music", { kind:"remix-music", blob:remixMusicFile, name:remixMusicFile.name, type:remixMusicFile.type }); }
+      catch(error) { addConsoleLine("WARN",["Music file could not be saved for refresh restore:",error.message]); }
+    } else label.textContent = "No background music selected."; 
   };
   document.getElementById("clear-remix").onclick = () => {
     remixClips = [];
@@ -351,7 +550,15 @@ export function bindUpload() {
     exportRemixButton.disabled = true;
     remixStatus.textContent = "Starting Phase 2 export…";
     try {
-      const blob = await createRemixExport(currentFile, remixClips, document.getElementById("remix-ratio").value, status => { remixStatus.textContent = status; });
+      const blob = await createRemixExport(currentFile, remixClips, document.getElementById("remix-ratio").value, status => { remixStatus.textContent = status; addConsoleLine("INFO",[status]); }, {
+        effect:document.getElementById("remix-effect").value,
+        speed:Number(document.getElementById("remix-speed").value),
+        quality:document.getElementById("remix-quality").value,
+        overlayText:document.getElementById("remix-overlay-text").value,
+        musicFile:remixMusicFile,
+        musicVolume:Number(document.getElementById("remix-music-volume").value),
+        originalVolume:Number(document.getElementById("remix-original-volume").value)
+      });
       await saveLocalItem("remix-export", { kind:"remix-export", blob, name:"clipforge-remix.mp4", type:"video/mp4" });
       const url = URL.createObjectURL(blob);
       document.getElementById("remix-download").innerHTML = '<a class="btn primary" id="download-remix" download="clipforge-remix.mp4" href="' + url + '">↓ Download final MP4</a>';
@@ -414,6 +621,18 @@ export function bindUpload() {
           : new File([savedSource.blob], savedSource.name || "restored-video.mp4", { type:savedSource.type || "video/mp4" });
         loadFile(restoredFile);
         addConsoleLine("SUCCESS", ["Restored source video from local browser storage."]);
+      }
+      const savedJob = await getLocalItem("rendobar-job");
+      if (savedJob?.jobId) cloudRenderStatus.textContent = "Saved cloud job: " + savedJob.jobId + " · Tap Check cloud job to resume tracking.";
+      if (savedJob?.outputUrl) {
+        const link=document.createElement("a"); link.className="btn primary"; link.href=savedJob.outputUrl;
+        link.target="_blank"; link.rel="noopener noreferrer"; link.textContent="↓ Open saved cloud MP4";
+        cloudDownload.append(link);
+      }
+      const savedMusic = await getLocalItem("remix-music");
+      if (savedMusic?.blob) {
+        remixMusicFile = savedMusic.blob instanceof File ? savedMusic.blob : new File([savedMusic.blob],savedMusic.name || "background-audio.mp3",{type:savedMusic.type || "audio/mpeg"});
+        document.getElementById("remix-music-status").textContent = "Restored music: " + remixMusicFile.name;
       }
       const savedTimeline = await getLocalItem("remix-timeline");
       if (savedTimeline?.clips) { remixClips = savedTimeline.clips; renderRemixTimeline(); }
