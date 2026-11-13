@@ -89,6 +89,7 @@ export function renderUpload() {
     <div class="tool-row"><button class="btn primary" id="export-remix" disabled>✦ Export joined MP4</button><button class="btn" id="clear-remix" style="background:#252d40">Clear timeline</button></div>
     <div class="tool-row"><button class="btn" id="cloud-render-remix" disabled style="background:linear-gradient(110deg,#225c79,#5140a1)">☁ Render in cloud (background)</button><button class="btn" id="check-cloud-render" style="background:#252d40">Check cloud job</button></div>
     <div class="analysis-status" id="cloud-render-status" aria-live="polite">Cloud rendering needs GetPronto + Rendobar API keys. Local rendering works without keys.</div><div id="cloud-render-download" style="margin-top:12px"></div>
+    <div class="analysis-status" id="cloud-render-status" aria-live="polite">Cloud rendering is optional and requires configured GetPronto + Rendobar credentials.</div><div id="cloud-render-download" style="margin-top:12px"></div>
     <div class="analysis-status" id="remix-status" aria-live="polite">Phase 2 editor ready. Your timeline is saved locally for 24 hours.</div>
     <div id="remix-download" style="margin-top:12px"></div>
     <p class="tiny muted">Local export supports cinematic colour grades, fade transitions, title overlays, speed changes and optional music mix. Cloud rendering will be optional once its API key is added.</p>
