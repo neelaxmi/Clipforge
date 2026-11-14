@@ -17,4 +17,12 @@ jobs:
       - run: node --check api/storage/getpronto.js
       - run: node --check api/render/rendobar.js
       - run: node --check js/factory.js
-      - run: node --check js/upload.js\n      - run: node --check js/integrations.js\n      - run: node --check api/google/_lib.js\n      - run: node --check api/google/oauth/start.js\n      - run: node --check api/google/oauth/callback.js\n      - run: node --check api/google/oauth/status.js\n      - run: node --check api/google/oauth/disconnect.js\n      - run: node --check api/google/drive.js\n      - run: node --check api/google/youtube.js
+      - run: node --check js/upload.js
+      - run: node --check js/integrations.js
+      - run: node --check api/google/_lib.js
+      - run: node --check api/google/oauth/start.js
+      - run: node --check api/google/oauth/callback.js
+      - run: node --check api/google/oauth/status.js
+      - run: node --check api/google/oauth/disconnect.js
+      - run: node --check api/google/drive.js
+      - run: node --check api/google/youtube.js
