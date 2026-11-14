@@ -6,7 +6,7 @@ const STATE_COOKIE="clipforge_google_state";
 function secret(){const value=process.env.GOOGLE_TOKEN_ENCRYPTION_KEY||process.env.GOOGLE_OAUTH_STATE_SECRET;if(!value)throw Object.assign(new Error("Google OAuth setup incomplete: add GOOGLE_TOKEN_ENCRYPTION_KEY and GOOGLE_OAUTH_STATE_SECRET in Vercel."),{statusCode:503});return crypto.createHash("sha256").update(value).digest()}
 function parseCookies(req){return Object.fromEntries(String(req.headers.cookie||"").split(";").map(v=>v.trim()).filter(Boolean).map(v=>{const i=v.indexOf("=");return [v.slice(0,i),decodeURIComponent(v.slice(i+1))]}))}
 function cookie(name,value,maxAge){return name+"="+encodeURIComponent(value)+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age="+maxAge}
-export function setCookie(res,name,value,maxAge){res.setHeader("Set-Cookie",cookie(name,value,maxAge))}
+export function setCookie(res,name,value,maxAge){const current=res.getHeader?.("Set-Cookie");const next=cookie(name,value,maxAge);res.setHeader("Set-Cookie",current?(Array.isArray(current)?[...current,next]:[current,next]):next)}
 export function clearCookie(res,name){res.setHeader("Set-Cookie",cookie(name,"",0))}
 export async function signedIn(req){return requireFirebaseUser(req)}
 export function makeState(uid){const payload=Buffer.from(JSON.stringify({uid,nonce:crypto.randomBytes(18).toString("hex"),iat:Date.now()})).toString("base64url");const sig=crypto.createHmac("sha256",secret()).update(payload).digest("base64url");return payload+"."+sig}
