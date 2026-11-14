@@ -15,3 +15,13 @@ input[type="range"]{accent-color:#8b5cf6;padding:8px!important}
 #remix-timeline .ghost-btn{min-width:34px;padding:8px}
 #remix-timeline .ghost-btn:disabled{opacity:.25}
 @media(max-width:650px){.remix-controls{grid-template-columns:1fr 1fr}.remix-controls .field:last-child{grid-column:1/-1}}
+
+/* AI Video Factory */
+.factory-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px;margin-bottom:16px;background:radial-gradient(circle at 90% 10%,#4a3b8b55,transparent 45%),linear-gradient(135deg,#171b30,#101927)}
+.factory-hero h1{font-size:clamp(25px,4vw,38px);margin:8px 0}.factory-hero p{max-width:660px;font-size:12px;line-height:1.6}
+.factory-stats{margin-bottom:16px}.factory-credit{display:flex;align-items:center;justify-content:space-between;gap:18px}.factory-credit p{margin:5px 0 0}.credit-input{display:flex;gap:8px;min-width:min(100%,330px)}.credit-input .input{min-width:0}
+.factory-queue{display:grid;gap:14px}.factory-task{border-color:#ffffff1c}.factory-task-top{display:flex;align-items:center;gap:13px}.factory-icon{width:45px;height:45px;border-radius:13px;background:linear-gradient(135deg,#30265b,#17404b);display:grid;place-items:center;font-size:22px;flex:none}.factory-task-title{flex:1;min-width:0}.factory-task-title h3{margin:4px 0;font-size:16px}.factory-task-title p{margin:0;line-height:1.45}.factory-status{max-width:145px;font-size:11px;padding:9px}.factory-actions{display:flex;gap:8px;flex-wrap:wrap}.factory-actions .btn{font-size:11px;background:#222c42}.factory-prompt{white-space:pre-wrap;overflow-wrap:anywhere;background:#080d16;border:1px solid #35435c;border-radius:10px;padding:13px;color:#c9d7ef;font-size:11px;line-height:1.6;margin:12px 0 0}.factory-prompt.hidden{display:none}
+@media(max-width:650px){.factory-hero,.factory-credit{align-items:stretch;flex-direction:column}.factory-hero .btn{width:100%;text-align:center}.credit-input{min-width:0}.factory-task-top{flex-wrap:wrap}.factory-status{margin-left:auto}.factory-actions>*{flex:1}.factory-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Google integrations */
+.integration-list{margin:14px 0;padding:10px;border:1px solid #ffffff1a;border-radius:12px;max-height:300px;overflow:auto}.youtube-upload{display:grid;gap:10px;padding:15px;margin-top:14px;border:1px solid #ffffff1a;border-radius:12px;background:#101726}.youtube-upload h4{margin:0 0 4px}.youtube-upload textarea{resize:vertical}.form-message.error{color:#ff8585}
