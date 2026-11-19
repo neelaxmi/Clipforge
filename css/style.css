@@ -25,8 +25,11 @@ input[type="range"]{accent-color:#8b5cf6;padding:8px!important}
 
 /* Google integrations */
 .integration-list{margin:14px 0;padding:10px;border:1px solid #ffffff1a;border-radius:12px;max-height:300px;overflow:auto}.youtube-upload{display:grid;gap:10px;padding:15px;margin-top:14px;border:1px solid #ffffff1a;border-radius:12px;background:#101726}.youtube-upload h4{margin:0 0 4px}.youtube-upload textarea{resize:vertical}.form-message.error{color:#ff8585}
+<<<<<<< HEAD
 
 /* Template mode */
 .tpl-slot{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:start;padding:12px;margin-bottom:10px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.02)}
 .tpl-slot .input{margin:6px 0}
 .tpl-thumb{width:72px;aspect-ratio:9/16;object-fit:cover;border-radius:8px;background:#0e1322}
+=======
+>>>>>>> abb849acb7a1c17074a8051fd788953abf968401

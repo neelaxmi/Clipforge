@@ -1,5 +1,8 @@
 import { FFmpeg } from "@ffmpeg/ffmpeg";
+<<<<<<< HEAD
 import { buildConcatList } from "./concat-list.js";
+=======
+>>>>>>> abb849acb7a1c17074a8051fd788953abf968401
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import Logger from "./logger.js";
 
@@ -150,7 +153,11 @@ export async function createRemixExport(file, clips, aspectRatio = "9:16", onSta
       }
     }
     if (!segmentNames.length) throw new Error("No valid clips found in the remix timeline.");
+<<<<<<< HEAD
     const list = buildConcatList(segmentNames);
+=======
+    const list = segmentNames.map(name => `file '${name}'`).join("\\n");
+>>>>>>> abb849acb7a1c17074a8051fd788953abf968401
     await ffmpeg.writeFile(listName, new TextEncoder().encode(list));
     onStatus("Joining clips and preparing final MP4…");
     await ffmpeg.exec(["-f","concat","-safe","0","-i",listName,"-c","copy","-movflags","+faststart",outputName]);
