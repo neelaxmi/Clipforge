@@ -6,12 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-<<<<<<< HEAD
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.js"
-=======
-    "preview": "vite preview --host 0.0.0.0"
->>>>>>> abb849acb7a1c17074a8051fd788953abf968401
   },
   "dependencies": {
     "@ffmpeg/core": "0.12.10",
@@ -20,11 +16,8 @@
     "jose": "5.9.6"
   },
   "devDependencies": {
-<<<<<<< HEAD
     "fake-indexeddb": "^6.2.8",
     "jsdom": "^31.0.1",
-=======
->>>>>>> abb849acb7a1c17074a8051fd788953abf968401
     "vite": "6.4.1"
   }
 }
