@@ -16,7 +16,6 @@ Mobile-first creator workspace for planning, analysing, editing and preparing sh
 - Manual Flow credit estimate only. ClipForge cannot read or spend Google Flow subscription credits through a supported public API.
 - Clip Studio: local video upload, existing Gemini moment analysis, trim preview, multi-clip timeline, local FFmpeg export, visual grades, titles, subtitles and audio mix.
 - Existing optional GetPronto storage and Rendobar cloud-render adapters remain separate and may have provider limits or costs.
-<<<<<<< HEAD
 - Template Mode: upload a short clip you own, auto-split it into shots, swap in your own photos/videos, keep its music, and add captions (pasted SRT or one line per caption). Everything runs and is stored on this device only.
 - Captions and content draft workspace.
 - Android-first responsive PWA with visible Clip Studio diagnostics console.
@@ -30,11 +29,6 @@ Upload a template clip (max 90 s / 120 MB), tap **Find slots** (scene-cut detect
 - It cannot download videos from Instagram or other links. Use clips and music you own or have permission to use.
 - Planned, not implemented: automatic caption transcription.
 
-=======
-- Captions and content draft workspace.
-- Android-first responsive PWA with visible Clip Studio diagnostics console.
-
->>>>>>> abb849acb7a1c17074a8051fd788953abf968401
 ## Google Flow
 
 Use the official Flow website from the AI Video Factory. Flow subscription credits are account-managed inside Flow; this project intentionally does not automate the Flow website, scrape account data or claim that it can spend those credits. The recommended production pattern is to generate only a few hero shots in Flow, then use your own footage, music and Clip Studio editing for the rest of each Short.
@@ -61,7 +55,6 @@ Never commit API keys or provider secrets to GitHub or frontend files.
 - `RENDOBAR_API_KEY` — server-side secret.
 - Cloud render jobs run on the provider's infrastructure and may consume limited trial credits or become paid. Keep this optional; local FFmpeg remains the default free path.
 
-<<<<<<< HEAD
 ## Google Drive and YouTube integration
 
 Implemented (needs your own Google Cloud OAuth client, see Setup below). Not tested against live Google credentials in the audit.
@@ -77,13 +70,6 @@ Required Vercel environment variables:
 - `GOOGLE_OAUTH_STATE_SECRET` — a different random 32+ chars
 
 Generate secrets with: `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`
-=======
-## Google Drive and YouTube OAuth status
-
-Drive and YouTube account connections are not active yet. They require a Google Cloud project, enabled Drive API / YouTube Data API, configured OAuth consent screen, OAuth client ID, redirect URI and secure server-side token storage. The Settings page labels these as setup-required; it does not ask users to paste API keys or passwords. No fake “connected” state is shown.
-
-YouTube publishing should be implemented only through the official YouTube Data API, with private-by-default uploads and a user approval step before publishing or scheduling.
->>>>>>> abb849acb7a1c17074a8051fd788953abf968401
 
 ## Deploy
 
@@ -92,15 +78,12 @@ YouTube publishing should be implemented only through the official YouTube Data 
 - Install command: `npm install`
 - API routes are Vercel Node.js Functions under `api/`.
 
-<<<<<<< HEAD
 ## Tests
 
 ```bash
 npm test
 ```
 
-=======
->>>>>>> abb849acb7a1c17074a8051fd788953abf968401
 ## Local development
 
 ```bash
