@@ -1,0 +1,10 @@
+export function renderDashboard(user) {
+ return `<div class="welcome-row"><div><span class="eyebrow">LET'S CREATE SOMETHING</span><h1>Welcome back, ${escapeHtml(user?.displayName || "Creator")} ✨</h1><p class="muted">Your daily short-form production desk is ready.</p></div><button class="btn primary" data-go="factory">⚡ Open AI Factory</button></div>
+ <div class="grid stats-grid"><div class="card"><div class="stat-label">Daily target</div><div class="stat-value">5 Shorts</div><div class="stat-foot">Five content lanes</div></div><div class="card"><div class="stat-label">Production</div><div class="stat-value">Factory</div><div class="stat-foot">Daily queue planner</div></div><div class="card"><div class="stat-label">Editing</div><div class="stat-value">FFmpeg</div><div class="stat-foot">On-device export</div></div><div class="card"><div class="stat-label">Publishing</div><div class="stat-value">Manual</div><div class="stat-foot">Review before upload</div></div></div>
+ <div class="section-head"><h3>Production lanes</h3><span class="tiny muted">YOUR DAILY FIVE</span></div><div class="grid quick-grid">
+ <div class="card quick-card" data-go="factory"><div class="quick-icon">⚡</div><b>Motivational Shorts</b><p>Hooks, cinematic prompts and daily queue.</p></div>
+ <div class="card quick-card" data-go="factory"><div class="quick-icon">🪔</div><b>Dharmik / Krishna / Shiva</b><p>Respectful devotional short-form concepts.</p></div>
+ <div class="card quick-card" data-go="factory"><div class="quick-icon">🎵</div><b>Original songs</b><p>Two distinct music-led short workflows.</p></div></div>
+ <div class="section-head"><h3>Workflow</h3></div><div class="card"><p class="muted small-copy">Plan a topic → generate a Flow hero shot if needed → import your own/generated footage into Clip Studio → trim, add titles/music/subtitles → review and publish manually. Flow credits remain managed on the official Flow website.</p><button class="btn" data-go="studio">Open Clip Studio →</button></div>`;
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}

@@ -1,0 +1,71 @@
+async function parseResponse(response) {
+  // Read the body exactly once. Calling response.json() and then response.text()
+  // in a catch block consumes the stream and hides non-JSON Vercel error pages.
+  const raw = await response.text().catch(() => "");
+  let data = {};
+  try { data = raw ? JSON.parse(raw) : {}; }
+  catch { data = { raw }; }
+  if (!response.ok) {
+    const error = new Error(data.error || `Request failed (${response.status})`);
+    error.status = response.status;
+    error.diagnostic = data.diagnostic || {
+      stage: "api_response",
+      httpStatus: response.status,
+      contentType: response.headers.get("content-type") || "unknown",
+      response: String(data.raw || raw || "(empty response body)").slice(0, 3000)
+    };
+    console.error("[Clipforge] API request failed", error.message, error.diagnostic);
+    throw error;
+  }
+  if (!raw) throw new Error("The server returned an empty response. Check Vercel Function Runtime Logs for this request.");
+  return data;
+}
+function uploadWithProgress(uploadUrl, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", uploadUrl, true);
+    xhr.setRequestHeader("Content-Type", file.type);
+    xhr.setRequestHeader("X-Goog-Upload-Offset", "0");
+    xhr.setRequestHeader("X-Goog-Upload-Command", "upload, finalize");
+    xhr.upload.onprogress = event => {
+      if (event.lengthComputable) onProgress(Math.round(event.loaded / event.total * 100));
+    };
+    xhr.onload = () => {
+      let data = {};
+      try { data = JSON.parse(xhr.responseText || "{}"); } catch {}
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+      else reject(new Error(`Gemini video upload failed (${xhr.status}). ${String(data.error?.message || xhr.responseText || "").slice(0,220)}`));
+    };
+    xhr.onerror = () => reject(new Error("Browser could not reach Gemini's upload endpoint. Check your connection, then retry."));
+    xhr.onabort = () => reject(new Error("Video upload was cancelled."));
+    xhr.send(file);
+  });
+}
+export async function analyzeLocalVideo(file, style, durationSeconds, idToken, onStatus = () => {}) {
+  onStatus("Preparing secure Gemini upload…");
+  const session = await parseResponse(await fetch("/api/gemini/upload-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ fileName: file.name, mimeType: file.type, size: file.size })
+  }));
+  onStatus("Uploading video to Gemini… 0%");
+  const uploaded = await uploadWithProgress(session.uploadUrl, file, percent => onStatus(`Uploading video to Gemini… ${percent}%`));
+  const fileInfo = uploaded.file || uploaded;
+  if (!fileInfo.name) throw new Error("Gemini upload completed but did not return a file reference.");
+  onStatus("Gemini is processing the video…");
+  const result = await parseResponse(await fetch("/api/gemini/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ fileName: fileInfo.name, mimeType: file.type, durationSeconds, style })
+  }));
+  return result;
+}
+
+export async function analyzeYouTubeVideo(url, style, idToken) {
+  const response = await fetch("/api/gemini/analyze-youtube", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ url, style })
+  });
+  return parseResponse(response);
+}
